@@ -1,0 +1,44 @@
+import type { ReactNode } from 'react';
+
+const POINTS = [
+  'Farmers prove who they are before a listing gets the verified badge.',
+  'Live animals travel no more than eight hours from the farm gate.',
+  'The payout waits until the buyer accepts the delivery.',
+];
+
+export function AuthShell({ title, caption, children }: { title: string; caption: string; children: ReactNode }) {
+  return (
+    <div className="grid min-h-[calc(100dvh-65px)] lg:grid-cols-2">
+      <div className="page-shell flex items-center justify-center py-14">
+        <div className="w-full max-w-md">
+          <h1 className="text-3xl font-bold text-ink-900">{title}</h1>
+          <p className="mt-2 text-ink-500">{caption}</p>
+          <div className="mt-8">{children}</div>
+        </div>
+      </div>
+
+      <div className="relative isolate hidden overflow-hidden bg-brand-900 lg:block">
+        <img
+          src="/images/sheep.jpg"
+          alt="A flock of sheep walking home at dusk past rural buildings"
+          className="absolute inset-0 size-full object-cover opacity-40"
+          loading="lazy"
+          width="900"
+          height="900"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-brand-900 via-brand-900/70 to-brand-900/30" />
+        <div className="relative flex h-full flex-col justify-end p-12">
+          <p className="eyebrow text-gold-300">Why traders stay</p>
+          <ul className="mt-5 space-y-3 text-brand-100">
+            {POINTS.map((point) => (
+              <li key={point} className="flex gap-3 text-sm leading-relaxed">
+                <span aria-hidden="true" className="mt-2 size-1.5 shrink-0 rounded-full bg-gold-300" />
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
