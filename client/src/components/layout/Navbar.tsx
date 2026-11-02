@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../common/Button';
 
 const NAV_LINKS = [
-  { to: '/', label: 'Marketplace' },
+  { to: '/marketplace', label: 'Marketplace' },
   { to: '/how-it-works', label: 'How it works' },
   { to: '/contact', label: 'Contact' },
 ];

@@ -5,13 +5,6 @@ import { env } from '../config/env';
 export const USER_ROLES = ['buyer', 'farmer', 'admin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
-export interface IUserPhoto {
-  url: string;
-  publicId: string;
-  bytes: number;
-  format: string;
-}
-
 export interface IUser {
   email: string;
   phoneNumber: string;
@@ -21,8 +14,6 @@ export interface IUser {
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
   isActive: boolean;
-  /** Farm and stock photos. The upload endpoint keeps the list inside its size limit. */
-  photos: IUserPhoto[];
   /** Bumped whenever a session must die immediately, e.g. after a password reset. */
   tokenVersion: number;
   lastLogin?: Date;
@@ -36,16 +27,6 @@ export interface IUserMethods {
 
 export type UserDoc = HydratedDocument<IUser, IUserMethods>;
 type UserModel = Model<IUser, Record<string, never>, IUserMethods>;
-
-const photoSchema = new Schema<IUserPhoto>(
-  {
-    url: { type: String, required: true },
-    publicId: { type: String, required: true },
-    bytes: { type: Number, required: true },
-    format: { type: String, required: true },
-  },
-  { _id: false }
-);
 
 const userSchema = new Schema<IUser, UserModel, IUserMethods>(
   {
@@ -63,7 +44,6 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
     fullName: { type: String, required: true, trim: true, maxlength: 120 },
     isEmailVerified: { type: Boolean, default: false },
     isPhoneVerified: { type: Boolean, default: false },
-    photos: { type: [photoSchema], default: [] },
     isActive: { type: Boolean, default: true },
     tokenVersion: { type: Number, default: 0 },
     lastLogin: Date,
@@ -89,7 +69,6 @@ export function toPublicUser(user: UserDoc) {
     role: user.role,
     isEmailVerified: user.isEmailVerified,
     isPhoneVerified: user.isPhoneVerified,
-    photos: user.photos,
     isActive: user.isActive,
     lastLogin: user.lastLogin,
     createdAt: user.createdAt,

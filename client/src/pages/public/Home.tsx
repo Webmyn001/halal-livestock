@@ -48,7 +48,7 @@ const FARMER_POINTS = [
 ];
 
 const BUYER_POINTS = [
-  'See the slaughterer, the date and the location on every processed listing.',
+  'See the farm, the town and the form of the animal on every listing, live or halal processed.',
   'Compare several farms in one town instead of relying on one middleman.',
   'Raise a dispute with photos if animals arrive injured, short or never.',
 ];
@@ -86,8 +86,13 @@ export function HomePage() {
                 {status === 'authenticated' ? 'Go to my dashboard' : 'Create free account'}
               </Button>
             </Link>
-            <Link to="/how-it-works">
+            <Link to="/marketplace">
               <Button size="lg" variant="secondary">
+                Browse the marketplace
+              </Button>
+            </Link>
+            <Link to="/how-it-works">
+              <Button size="lg" variant="ghost" className="text-white hover:bg-white/10">
                 See how it works
               </Button>
             </Link>
@@ -220,7 +225,8 @@ export function HomePage() {
             </Link>
           </div>
           <p className="mt-6 text-sm text-brand-200">
-            Marketplace browsing and checkout open in the next build. Accounts and roles work today.
+            Marketplace browsing, farmer listings and account checks work today. Checkout and in app messaging open in
+            the next build.
           </p>
         </div>
       </section>

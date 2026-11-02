@@ -2,21 +2,21 @@ import { AccountPanel } from '../../components/dashboard/AccountPanel';
 import { Checklist } from '../../components/dashboard/Checklist';
 import { DashboardHeader } from '../../components/dashboard/DashboardHeader';
 import { ImageTiles, type ImageTile } from '../../components/dashboard/ImageTiles';
-import { PhotoUploader } from '../../components/dashboard/PhotoUploader';
+import { MyListings } from '../../components/dashboard/MyListings';
 import { ReportsCard } from '../../components/dashboard/ReportsCard';
 import { VerificationCard } from '../../components/dashboard/VerificationCard';
 import { useAuth } from '../../hooks/useAuth';
 
 const TILES: ImageTile[] = [
   {
-    to: '/how-it-works',
-    title: 'Prepare a listing',
-    body: 'Photos, weight band and the halal slaughter record.',
+    to: '/farmer/post-livestock',
+    title: 'Post livestock',
+    body: 'One to four photos, a price and a description.',
     image: '/images/sheep.jpg',
     alt: 'A flock of sheep being walked home',
   },
   {
-    to: '/',
+    to: '/marketplace',
     title: 'See what other farms charge',
     body: 'Prices and wording from sellers across Oyo State.',
     image: '/images/market.jpg',
@@ -54,9 +54,9 @@ export function FarmerDashboardPage() {
         <div className="min-w-0 space-y-9">
           <ImageTiles heading="Where to start" tiles={TILES} />
 
-          <VerificationCard />
+          <MyListings />
 
-          <PhotoUploader />
+          <VerificationCard />
 
           <Checklist
             title="Earn the verified badge"
@@ -69,7 +69,7 @@ export function FarmerDashboardPage() {
               },
               {
                 label: 'Send photos or video of the farm',
-                done: user.photos.length > 0,
+                done: false,
                 note: 'Two clear shots of the animals and the pens, taken at your location.',
               },
               {

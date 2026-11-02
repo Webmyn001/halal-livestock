@@ -60,7 +60,7 @@ export function Footer() {
           <h3 className="text-sm font-semibold text-white">Use the site</h3>
           <ul className="mt-4 space-y-2 text-sm">
             <li>
-              <Link to="/" className="hover:text-white">
+              <Link to="/marketplace" className="hover:text-white">
                 Marketplace
               </Link>
             </li>

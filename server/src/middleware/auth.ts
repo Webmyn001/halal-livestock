@@ -65,7 +65,14 @@ export const attachUserIfPresent: RequestHandler = (req, res, next) => {
 
 export function requireRole(...roles: UserRole[]): RequestHandler {
   return (req, res, next) => {
-    void verifyToken(req, res, () => {
+    // verifyToken reports a bad session by calling next(err), which lands here as its first
+    // argument. Without that check a missing token would be swallowed and answered as a role
+    // problem instead of a sign in problem.
+    void verifyToken(req, res, (authError?: unknown) => {
+      if (authError) {
+        next(authError);
+        return;
+      }
       if (!req.user || !roles.includes(req.user.role)) {
         next(ApiError.forbidden(`Requires role: ${roles.join(' or ')}`));
         return;

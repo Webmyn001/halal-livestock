@@ -23,15 +23,18 @@ const EXTENSION_BY_TYPE: Record<string, string> = {
   'image/webp': 'webp',
 };
 
-/**
- * Every stored key starts with the account that owns it, which is how a delete request proves
- * the caller is not pointing at somebody else's file.
- */
-function ownerPrefix(userId: string): string {
-  return `${env.STORAGE_PROVIDER === 'cloudinary' ? 'halal-livestocks' : 'users'}/${userId}`;
-}
+const CLOUDINARY_ROOT = 'halal-livestocks';
 
 export const LOCAL_UPLOAD_ROOT = resolve(process.cwd(), env.UPLOAD_DIR);
+
+/** Where a farmer's listing photos live. Every key is built from this, so it is also the guard. */
+export function listingFolder(farmerId: string): string {
+  return `listings/${farmerId}`;
+}
+
+function ownedPrefix(folder: string): string {
+  return env.STORAGE_PROVIDER === 'cloudinary' ? `${CLOUDINARY_ROOT}/${folder}` : folder;
+}
 
 if (env.STORAGE_PROVIDER === 'cloudinary') {
   cloudinary.config({
@@ -54,13 +57,13 @@ export const imageUpload = multer({
   },
 });
 
-export async function storeImage(file: Express.Multer.File, userId: string): Promise<StoredImage> {
-  return env.STORAGE_PROVIDER === 'cloudinary' ? storeWithCloudinary(file, userId) : storeOnDisk(file, userId);
+export async function storeImage(file: Express.Multer.File, folder: string): Promise<StoredImage> {
+  return env.STORAGE_PROVIDER === 'cloudinary' ? storeWithCloudinary(file, folder) : storeOnDisk(file, folder);
 }
 
-export async function deleteImage(publicId: string, userId: string): Promise<void> {
-  if (!publicId.startsWith(`${ownerPrefix(userId)}/`)) {
-    throw ApiError.forbidden('That image does not belong to this account');
+export async function deleteImage(publicId: string, folder: string): Promise<void> {
+  if (!publicId.startsWith(`${ownedPrefix(folder)}/`)) {
+    throw ApiError.forbidden('That image does not belong to this listing');
   }
 
   if (env.STORAGE_PROVIDER === 'cloudinary') {
@@ -75,13 +78,13 @@ export async function deleteImage(publicId: string, userId: string): Promise<voi
   await unlink(resolve(LOCAL_UPLOAD_ROOT, publicId)).catch(() => undefined);
 }
 
-async function storeWithCloudinary(file: Express.Multer.File, userId: string): Promise<StoredImage> {
+async function storeWithCloudinary(file: Express.Multer.File, folder: string): Promise<StoredImage> {
   // The master copy is downscaled and compressed on the way in, and the delivery URL asks
   // Cloudinary for the smallest format this browser understands.
   const uploaded = await new Promise<{ public_id: string; bytes: number; format: string }>((done, fail) => {
     const stream = cloudinary.uploader.upload_stream(
       {
-        folder: ownerPrefix(userId),
+        folder: `${CLOUDINARY_ROOT}/${folder}`,
         resource_type: 'image',
         overwrite: false,
         transformation: [
@@ -108,11 +111,11 @@ async function storeWithCloudinary(file: Express.Multer.File, userId: string): P
   };
 }
 
-async function storeOnDisk(file: Express.Multer.File, userId: string): Promise<StoredImage> {
-  const publicId = `${ownerPrefix(userId)}/${randomUUID()}.${EXTENSION_BY_TYPE[file.mimetype] ?? 'bin'}`;
-  const directory = resolve(LOCAL_UPLOAD_ROOT, ownerPrefix(userId));
+async function storeOnDisk(file: Express.Multer.File, folder: string): Promise<StoredImage> {
+  const name = `${randomUUID()}.${EXTENSION_BY_TYPE[file.mimetype] ?? 'bin'}`;
+  const publicId = `${ownedPrefix(folder)}/${name}`;
 
-  await mkdir(directory, { recursive: true });
+  await mkdir(resolve(LOCAL_UPLOAD_ROOT, folder), { recursive: true });
   await writeFile(join(LOCAL_UPLOAD_ROOT, publicId), file.buffer);
 
   return {

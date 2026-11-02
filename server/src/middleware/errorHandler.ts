@@ -51,7 +51,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, next: Ne
       error: {
         code: 'INVALID_IMAGE',
         message:
-          err.code === 'LIMIT_UNEXPECTED_FILE'
+          err.code === 'LIMIT_UNEXPECTED_FILE' || err.code === 'LIMIT_FILE_COUNT'
             ? 'Too many images in one upload. Select no more than four.'
             : 'That upload could not be read',
       },

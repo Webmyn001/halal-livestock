@@ -1,13 +1,14 @@
 # Halal Livestocks
 
 A digital marketplace connecting livestock farmers with buyers (wholesalers, butchers, restaurants, caterers and
-households) in **Ibadan and Oyo State, Nigeria** — with verified farmers, strict halal segregation of live animals and
+households) in **Ibadan, Oyo State, Nigeria** — with verified farmers, strict halal segregation of live animals and
 processed products, and payment protection on every order.
 
-**Current status: Phase 1 (Foundation) is implemented** — project scaffolding, environment configuration, centralized
-error handling, accounts with role-based auth, the login/register/session UI, image-led buyer and farmer dashboards, and
-a support desk where anyone can log a complaint to the admin. Marketplace listings, messaging, orders, Paystack checkout,
-delivery and disputes arrive in later phases.
+**Current status: Phase 1 (Foundation) and the Phase 3 marketplace are implemented** — project scaffolding, environment
+configuration, centralized error handling, accounts with role-based auth, the login/register/session UI, image-led buyer
+and farmer dashboards, a support desk where anyone can log a complaint to the admin, and livestock listings: a farmer
+posts stock with one to four photos, buyers browse, filter, search and open a listing page. Messaging, orders, Paystack
+checkout, delivery, disputes and farmer KYC arrive in later phases.
 
 ## Repository layout
 
@@ -70,8 +71,13 @@ All responses use one envelope: `{ success: true, data }` or
 | POST | `/api/v1/auth/phone/send-code` | Bearer, rate limited | SMS a six digit code to the number on the account |
 | POST | `/api/v1/auth/phone/confirm` | Bearer, rate limited | Verify the number with that code |
 | PUT | `/api/v1/users/profile` | Bearer | Update own name/phone only |
-| POST | `/api/v1/uploads/images` | Bearer, rate limited | Upload up to 4 images (3 MB for the set) and attach them to the account |
-| DELETE | `/api/v1/uploads/images` | Bearer, rate limited | Remove one image by its storage key |
+| GET | `/api/v1/listings` | — | Public marketplace page: filters by `species`, `type`, `q`, `sort`, `page` |
+| GET | `/api/v1/listings/mine` | Farmer Bearer | Every listing on the caller's own account, including sold and taken down ones |
+| GET | `/api/v1/listings/:id` | Optional Bearer | One listing. `removed` ones are only visible to their owner |
+| POST | `/api/v1/listings` | Farmer Bearer, rate limited | Create a listing as multipart form data with **1 to 4 photos, 3 MB for the set** |
+| PATCH | `/api/v1/listings/:id` | Farmer Bearer, rate limited | Change the text, price, quantity or status of own listing |
+| POST | `/api/v1/listings/:id/photos` | Farmer Bearer, rate limited | Add photos to a listing that still has room |
+| DELETE | `/api/v1/listings/:id/photos` | Farmer Bearer, rate limited | Remove one photo by its storage key. The last photo is protected |
 | POST | `/api/v1/support/complaints` | optional Bearer, rate limited | Log a complaint to the admin (guest or signed in) |
 | GET | `/api/v1/support/complaints` | Bearer | The caller's own reports, newest first |
 
@@ -119,9 +125,11 @@ domain in the Brevo dashboard first), and `SMS_PROVIDER=termii` with `TERMII_API
 
 ## Images and storage
 
-Uploads go through `server/src/services/imageStore.ts`. The API accepts a batch of at most **4 images, 3 MB for the
-whole set**, in JPEG, PNG or WebP. A signed-in account keeps its own list of photos on the `User` document, capped at
-the same 4, so the limits hold whether files arrive in one batch or across several.
+Pictures belong to a **listing**, not to the account. A farmer cannot publish stock without at least one photo, and the
+listing holds at most four. Uploads go through `server/src/services/imageStore.ts`, which accepts a batch of
+**4 images, 3 MB for the whole set**, in JPEG, PNG or WebP. The same limits are checked twice: multer stops a file that
+is too large or a fifth slot on the way in, and `assertBatch` in the listing controller totals the set and refuses a
+listing that would end up with no photo or too many.
 
 | Variable | Values | Notes |
 | --- | --- | --- |
@@ -135,27 +143,42 @@ What the service does with each file:
 - **Compression and conversion.** Cloudinary receives the upload with a `1600x1600 limit` resize and `quality: auto:good`
   applied on the way in, so the stored master is already small. The URL handed back to the browser carries
   `fetch_format: auto` and `quality: auto`, which lets Cloudinary serve AVIF or WebP to the clients that understand
-  them. The user never has to resize anything themselves.
-- **Ownership.** Every storage key starts with the account id (`halal-livestocks/users/<id>/…`), and a delete is refused
-  unless the key is both on that account's own photo list and inside its own prefix. A guessed key cannot remove
-  somebody else's file.
+  them. The farmer never has to resize anything themselves.
+- **Ownership.** Every storage key starts with the owner path (`halal-livestocks/listings/<farmerId>/…`), and a delete is
+  refused unless the key sits inside the caller's own prefix **and** is on the listing being edited. A guessed key
+  cannot remove somebody else's file.
 - **Failure hygiene.** If the third image in a batch is rejected, the two that already landed are deleted again, so a
   partial upload never leaves orphaned files behind.
-- **Removal.** Deleting a photo takes it out of the array and out of storage in the same request.
+- **Removal.** Deleting a photo takes it out of the listing and out of storage in the same request. The last photo on a
+  listing cannot be removed: the farmer adds a replacement first, because a listing without a picture is not sellable.
+- **What the public sees.** `toPublicListing` returns the image URL, size and format to everyone, but the storage key
+  only to the farmer who owns the listing, since that key is what a delete request is made of.
 
 `helmet` is configured with `Cross-Origin-Resource-Policy: cross-origin` because the images are read by the web app on
 a different port to the API.
 
+## Listings
+
+`server/src/models/Listing.ts` keeps the price in **kobo** (`priceKobo`), so no float ever sits on the money path; the
+client sends `priceNaira` and the server multiplies by 100. Species is one of `rabbit`, `poultry`, `sheep`, `goat`, the
+form is `live` or `halal_processed`, and the status moves between `active`, `sold` and `removed`.
+
+`GET /api/v1/listings` filters on status, species and form, searches title, breed, town and description with a regex
+(the user's text is escaped first), sorts by newest or price, and pages at 12 per request. Only `active` listings reach
+the marketplace; a `removed` one stays readable for its owner.
+
 ## UI routes
 
-`/` marketplace landing, `/how-it-works`, `/contact` (support desk), `/register`, `/login`, `/forgot-password`,
-`/verify-email?token=…`, `/reset-password?token=…`, and role-guarded dashboards at `/buyer/dashboard`,
-`/farmer/dashboard`, `/admin/dashboard`. `ProtectedRoute` redirects anonymous visitors to `/login` and remembers where
-they were heading; the session is restored from the stored token on reload via `/auth/me`.
+`/` landing page, `/marketplace` (filters, search, sort and paging over live listings), `/marketplace/:id` (photo
+gallery, price, farmer card), `/how-it-works`, `/contact` (support desk), `/register`, `/login`, `/forgot-password`,
+`/verify-email?token=…`, `/reset-password?token=…`, and role-guarded screens at `/buyer/dashboard`,
+`/farmer/dashboard`, `/farmer/post-livestock`, `/admin/dashboard`. `ProtectedRoute` redirects anonymous visitors to
+`/login` and remembers where they were heading; the session is restored from the stored token on reload via `/auth/me`.
 
 The dashboards carry an "Account checks" card for the two confirmations: a resend button for the email link and a code
-entry for the phone number. The farmer dashboard also carries a "Farm photos" card that uploads, previews and removes
-images against those storage limits. `/verify-email` and `/reset-password` are reachable while signed in or out, because
+entry for the phone number. The farmer dashboard also carries "My listings": every listing on the account with its
+status, the photo strip (add while there is room, remove any but the last) and the buttons that mark a lot sold, put a
+taken down one back up or open the buyer's view of it. `/verify-email` and `/reset-password` are reachable while signed in or out, because
 a person arrives at them from an email. A successful password reset clears the stored token locally, since the server
 has just invalidated it.
 
