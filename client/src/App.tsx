@@ -4,11 +4,16 @@ import { dashboardPath, Navbar } from './components/layout/Navbar';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Spinner } from './components/common/Button';
 import { useAuth } from './hooks/useAuth';
-import { DashboardPage } from './pages/Dashboard';
 import { NotFoundPage } from './pages/NotFound';
+import { OrderDetailPage } from './pages/OrderDetailPage';
+import { OrdersPage } from './pages/OrdersPage';
+import { CheckoutMockPage } from './pages/CheckoutMockPage';
 import { BuyerDashboardPage } from './pages/buyer/BuyerDashboard';
 import { FarmerDashboardPage } from './pages/farmer/FarmerDashboard';
 import { PostLivestockPage } from './pages/farmer/PostLivestock';
+import { VerifyFarmPage } from './pages/farmer/VerifyFarmPage';
+import { DeliveriesPage } from './pages/driver/DeliveriesPage';
+import { AdminConsolePage } from './pages/admin/AdminConsolePage';
 import { ContactPage } from './pages/public/Contact';
 import { ForgotPasswordPage } from './pages/public/ForgotPassword';
 import { HomePage } from './pages/public/Home';
@@ -72,6 +77,23 @@ export default function App() {
             }
           />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/checkout/mock" element={<CheckoutMockPage />} />
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute roles={['buyer', 'farmer']}>
+                <OrdersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders/:id"
+            element={
+              <ProtectedRoute roles={['buyer', 'farmer', 'driver', 'admin']}>
+                <OrderDetailPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/buyer/dashboard"
             element={
@@ -97,10 +119,26 @@ export default function App() {
             }
           />
           <Route
+            path="/farmer/verify-farm"
+            element={
+              <ProtectedRoute roles={['farmer']}>
+                <VerifyFarmPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/deliveries"
+            element={
+              <ProtectedRoute roles={['driver']}>
+                <DeliveriesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/dashboard"
             element={
               <ProtectedRoute roles={['admin']}>
-                <DashboardPage />
+                <AdminConsolePage />
               </ProtectedRoute>
             }
           />

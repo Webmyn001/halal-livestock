@@ -4,9 +4,15 @@ import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiRequestError } from '../../services/apiClient';
+import type { UserRole } from '../../types';
 import { formatDate } from '../../utils/format';
 
-const ROLE_LABELS = { buyer: 'Buyer', farmer: 'Farmer', admin: 'Administrator' };
+const ROLE_LABELS: Record<UserRole, string> = {
+  buyer: 'Buyer',
+  farmer: 'Farmer',
+  driver: 'Driver',
+  admin: 'Administrator',
+};
 
 export function AccountPanel() {
   const { user, updateProfile } = useAuth();

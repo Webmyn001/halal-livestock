@@ -28,7 +28,13 @@ export class ApiRequestError extends Error {
   }
 }
 
-export const api = axios.create({ baseURL: '/api/v1' });
+/**
+ * Same origin by default so the dev proxy and a reverse proxy in production both work. Set
+ * VITE_API_BASE_URL when the API is deployed on its own host.
+ */
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '') || '/api/v1';
+
+export const api = axios.create({ baseURL: API_BASE_URL });
 
 api.interceptors.request.use((config) => {
   const token = tokenStore.get();
@@ -52,7 +58,7 @@ function normalizeError(err: unknown): ApiRequestError {
   if (axios.isAxiosError(err)) {
     const body = err.response?.data as { error?: { code?: string; message?: string; details?: FieldError[] } } | undefined;
     return new ApiRequestError(
-      body?.error?.message ?? 'Cannot reach the API. Check that the server is running on port 4000.',
+      body?.error?.message ?? 'Cannot reach the API. Check that the server is running.',
       body?.error?.code ?? 'NETWORK_ERROR',
       err.response?.status,
       body?.error?.details ?? []

@@ -81,3 +81,21 @@ export function requireRole(...roles: UserRole[]): RequestHandler {
     });
   };
 }
+
+/**
+ * For a router that already ran verifyToken on every request. Checking the role again through
+ * requireRole would read the account from the database twice per call.
+ */
+export function requireSessionRole(...roles: UserRole[]): RequestHandler {
+  return (req, _res, next) => {
+    if (!req.user) {
+      next(ApiError.unauthorized('Authentication required'));
+      return;
+    }
+    if (!roles.includes(req.user.role)) {
+      next(ApiError.forbidden(`Requires role: ${roles.join(' or ')}`));
+      return;
+    }
+    next();
+  };
+}

@@ -1,5 +1,5 @@
 import cors from 'cors';
-import express from 'express';
+import express, { type Request } from 'express';
 import helmet from 'helmet';
 import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -21,7 +21,15 @@ export function createApp() {
       credentials: true,
     })
   );
-  app.use(express.json({ limit: '100kb' }));
+  // The Paystack webhook is proved by an HMAC over the exact bytes sent, so they are kept.
+  app.use(
+    express.json({
+      limit: '100kb',
+      verify: (req, _res, buf) => {
+        (req as Request).rawBody = buf;
+      },
+    })
+  );
 
   app.get('/health', (_req, res) => {
     res.status(200).json({ success: true, data: { status: 'ok', uptime: process.uptime() } });

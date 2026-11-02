@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import type { UserRole } from '../../types';
 import { Button } from '../common/Button';
 
 const NAV_LINKS = [
@@ -8,6 +9,13 @@ const NAV_LINKS = [
   { to: '/how-it-works', label: 'How it works' },
   { to: '/contact', label: 'Contact' },
 ];
+
+const ROLE_LINKS: Partial<Record<UserRole, { to: string; label: string }>> = {
+  buyer: { to: '/orders', label: 'My orders' },
+  farmer: { to: '/orders', label: 'Orders' },
+  driver: { to: '/deliveries', label: 'My deliveries' },
+  admin: { to: '/admin/dashboard', label: 'Admin console' },
+};
 
 export function Navbar() {
   const { user, logout } = useAuth();
@@ -24,6 +32,14 @@ export function Navbar() {
         </Link>
 
         <nav className="hidden flex-1 space-x-4 text-sm font-medium text-ink-700 md:flex md:space-x-5 lg:space-x-6">
+          {user && ROLE_LINKS[user.role] ? (
+            <NavLink
+              to={ROLE_LINKS[user.role]!.to}
+              className={({ isActive }) => `whitespace-nowrap font-semibold ${isActive ? 'text-brand-700' : 'text-brand-800 transition hover:text-brand-900'}`}
+            >
+              {ROLE_LINKS[user.role]!.label}
+            </NavLink>
+          ) : null}
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.to}
@@ -82,6 +98,15 @@ export function Navbar() {
       {menuOpen ? (
         <div id="mobile-menu" className="border-t border-stone-200 bg-white md:hidden" onClick={() => setMenuOpen(false)}>
           <div className="page-shell space-y-3 py-4">
+            {user && ROLE_LINKS[user.role] ? (
+              <NavLink
+                key={ROLE_LINKS[user.role]!.to}
+                to={ROLE_LINKS[user.role]!.to}
+                className={({ isActive }) => `block text-sm font-semibold ${isActive ? 'text-brand-700' : 'text-brand-800'}`}
+              >
+                {ROLE_LINKS[user.role]!.label}
+              </NavLink>
+            ) : null}
             {NAV_LINKS.map((link) => (
               <NavLink
                 key={link.to}
@@ -121,6 +146,6 @@ export function Navbar() {
   );
 }
 
-export function dashboardPath(role: 'buyer' | 'farmer' | 'admin'): string {
-  return `/${role}/dashboard`;
+export function dashboardPath(role: UserRole): string {
+  return role === 'driver' ? '/deliveries' : `/${role}/dashboard`;
 }

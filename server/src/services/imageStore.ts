@@ -32,6 +32,16 @@ export function listingFolder(farmerId: string): string {
   return `listings/${farmerId}`;
 }
 
+/** Evidence on a dispute, kept apart from the listing so a takedown does not delete the proof. */
+export function disputeFolder(userId: string): string {
+  return `disputes/${userId}`;
+}
+
+/** The identity document a farmer uploads once during verification. */
+export function kycFolder(userId: string): string {
+  return `kyc/${userId}`;
+}
+
 function ownedPrefix(folder: string): string {
   return env.STORAGE_PROVIDER === 'cloudinary' ? `${CLOUDINARY_ROOT}/${folder}` : folder;
 }

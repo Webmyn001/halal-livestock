@@ -64,6 +64,13 @@ export const removePhotoSchema = z.object({
   publicId: z.string().trim().min(4, 'Missing photo reference').max(300),
 });
 
+/** What staff do to a listing from the moderation queue. */
+export const moderateListingSchema = z.object({
+  action: z.enum(['restore', 'remove'], { message: 'Choose restore or remove' }),
+  reason: z.string().trim().min(5).max(300).optional(),
+});
+
 export type CreateListingInput = z.infer<typeof createListingSchema>;
 export type UpdateListingInput = z.infer<typeof updateListingSchema>;
 export type ListQuery = z.infer<typeof listQuerySchema>;
+export type ModerateListingInput = z.infer<typeof moderateListingSchema>;

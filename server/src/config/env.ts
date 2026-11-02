@@ -26,6 +26,15 @@ const envSchema = z.object({
   // Links inside emails point at the web app, which is a different origin to the API.
   PUBLIC_APP_URL: z.string().default('http://localhost:5173'),
 
+  // Payments. 'mock' settles an order the moment its checkout link is opened and is refused in
+  // production. 'paystack' talks to the real API and needs the keys below.
+  PAYMENT_PROVIDER: z.enum(['mock', 'paystack']).default('mock'),
+  PAYSTACK_SECRET_KEY: z.string().optional(),
+  PAYSTACK_PUBLIC_KEY: z.string().optional(),
+  // The value set on the Paystack dashboard for this webhook. The signature check is nothing
+  // without it, so a production deployment cannot run without one.
+  PAYSTACK_WEBHOOK_SECRET: z.string().optional(),
+
   // Image storage. 'local' writes under the server folder and is only allowed outside production.
   STORAGE_PROVIDER: z.enum(['local', 'cloudinary']).default('local'),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
@@ -59,6 +68,20 @@ const envSchema = z.object({
       message:
         'CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET are required when STORAGE_PROVIDER=cloudinary',
       path: ['CLOUDINARY_CLOUD_NAME'],
+    }
+  )
+  .refine(
+    (value) => value.PAYMENT_PROVIDER !== 'mock' || value.NODE_ENV !== 'production',
+    { message: 'PAYMENT_PROVIDER must be paystack in production', path: ['PAYMENT_PROVIDER'] }
+  )
+  .refine(
+    (value) =>
+      value.PAYMENT_PROVIDER !== 'paystack' ||
+      Boolean(value.PAYSTACK_SECRET_KEY && value.PAYSTACK_WEBHOOK_SECRET),
+    {
+      message:
+        'PAYSTACK_SECRET_KEY and PAYSTACK_WEBHOOK_SECRET are required when PAYMENT_PROVIDER=paystack',
+      path: ['PAYSTACK_SECRET_KEY'],
     }
   );
 

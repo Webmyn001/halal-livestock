@@ -3,6 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { FaArrowLeftLong, FaLocationDot, FaRegCalendar, FaUserCheck } from 'react-icons/fa6';
 import { Alert } from '../../components/common/Alert';
 import { Button, Spinner } from '../../components/common/Button';
+import { OrderPanel } from '../../components/marketplace/OrderPanel';
+import { useAuth } from '../../hooks/useAuth';
+import { adminService } from '../../services/adminService';
 import { ApiRequestError } from '../../services/apiClient';
 import { listingService } from '../../services/listingService';
 import type { Listing } from '../../types';
@@ -26,9 +29,12 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 export function ListingDetailPage() {
   const { id = '' } = useParams();
+  const { user } = useAuth();
   const [listing, setListing] = useState<Listing | null>(null);
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [activeImage, setActiveImage] = useState(0);
+  const [moderation, setModeration] = useState('');
+  const [isModerating, setIsModerating] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +84,24 @@ export function ListingDetailPage() {
 
   const [cover] = listing.images;
   const shown = listing.images[activeImage] ?? cover;
+  const isAdmin = user?.role === 'admin';
+
+  async function moderate(action: 'restore' | 'remove') {
+    setIsModerating(true);
+    setModeration('');
+    try {
+      await adminService.moderateListing(
+        id,
+        action,
+        action === 'remove' ? 'Taken down by the review team' : undefined
+      );
+      setListing(await listingService.get(id));
+    } catch (err) {
+      setModeration(err instanceof ApiRequestError ? err.message : 'That change did not save.');
+    } finally {
+      setIsModerating(false);
+    }
+  }
 
   return (
     <div className="page-shell py-8 sm:py-12">
@@ -182,18 +206,30 @@ export function ListingDetailPage() {
               </p>
             </div>
 
-            <div className="mt-6 space-y-3">
-              <Link to="/contact" className="block">
-                <Button size="lg" className="w-full">
-                  Ask about this listing
-                </Button>
-              </Link>
-              <Link to="/how-it-works" className="block">
-                <Button variant="secondary" className="w-full">
-                  How payment is held
-                </Button>
+            <div className="mt-6 space-y-4">
+              <OrderPanel listing={listing} />
+              <Link to="/how-it-works" className="block text-center text-xs font-medium text-brand-700 underline">
+                How the payment is held
               </Link>
             </div>
+
+            {isAdmin ? (
+              <div className="mt-6 space-y-3 rounded-xl bg-stone-50 p-4 ring-1 ring-inset ring-stone-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Staff controls</p>
+                {moderation ? <Alert tone="error">{moderation}</Alert> : null}
+                <div className="flex flex-wrap gap-2">
+                  {listing.status === 'active' ? (
+                    <Button size="sm" variant="danger" isLoading={isModerating} onClick={() => moderate('remove')}>
+                      Take this listing down
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="secondary" isLoading={isModerating} onClick={() => moderate('restore')}>
+                      Put it back up
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card">
@@ -204,7 +240,7 @@ export function ListingDetailPage() {
                 {listing.farmer.isVerified ? (
                   <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800 ring-1 ring-inset ring-brand-200">
                     <FaUserCheck aria-hidden="true" className="size-3" />
-                    Email and phone confirmed
+                    Farm account verified
                   </p>
                 ) : (
                   <p className="mt-2 text-xs leading-relaxed text-ink-500">

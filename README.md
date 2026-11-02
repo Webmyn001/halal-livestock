@@ -4,11 +4,15 @@ A digital marketplace connecting livestock farmers with buyers (wholesalers, but
 households) in **Ibadan, Oyo State, Nigeria** — with verified farmers, strict halal segregation of live animals and
 processed products, and payment protection on every order.
 
-**Current status: Phase 1 (Foundation) and the Phase 3 marketplace are implemented** — project scaffolding, environment
-configuration, centralized error handling, accounts with role-based auth, the login/register/session UI, image-led buyer
-and farmer dashboards, a support desk where anyone can log a complaint to the admin, and livestock listings: a farmer
-posts stock with one to four photos, buyers browse, filter, search and open a listing page. Messaging, orders, Paystack
-checkout, delivery, disputes and farmer KYC arrive in later phases.
+**Current status: the full trading loop is implemented** — project scaffolding, environment configuration, centralized
+error handling, accounts with role-based auth, the login/register/session UI, image-led dashboards, a support desk,
+livestock listings with photos, orders with a checkout held by the platform, delivery guarded by a six digit handover
+code, a settlement ledger with commission, disputes with photo evidence, in app chat between buyer and farmer, farmer
+KYC with an approval queue, and an admin console over all of it including `PlatformSettings`.
+
+Two providers are still switched off by default and need keys before a launch: image storage (`cloudinary`) and money
+(`paystack`). Both are refused when `NODE_ENV=production`, so the app cannot go live on the local/mock paths by
+accident. See [Environment checklist](#environment-checklist).
 
 ## Repository layout
 
@@ -52,11 +56,15 @@ The Vite dev server proxies `/api` to `http://localhost:4000`, so no CORS setup 
 | typecheck | `npm run typecheck` | `npm run typecheck` |
 | build | `npm run build` → `dist/` | `npm run build` → `dist/` |
 | run prod | `npm start` | `npm run preview` |
+| make a staff account | `npm run seed:account -- --role admin …` | — |
 
-## API (Phase 1)
+## API
 
 All responses use one envelope: `{ success: true, data }` or
-`{ success: false, error: { code, message, details? } }`.
+`{ success: false, error: { code, message, details? } }`. A failed zod check answers `400` with
+`details: [{ field, message }]`, which the client turns into per-field errors under the inputs.
+
+### Accounts, listings and support
 
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
@@ -80,6 +88,61 @@ All responses use one envelope: `{ success: true, data }` or
 | DELETE | `/api/v1/listings/:id/photos` | Farmer Bearer, rate limited | Remove one photo by its storage key. The last photo is protected |
 | POST | `/api/v1/support/complaints` | optional Bearer, rate limited | Log a complaint to the admin (guest or signed in) |
 | GET | `/api/v1/support/complaints` | Bearer | The caller's own reports, newest first |
+| GET | `/api/v1/platform` | — | Public settings: commission, dispute window, support contacts, `paymentsOpen` |
+
+### Orders and checkout
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/v1/orders` | Bearer | Own orders, newest first. Buyer, farmer, driver and admin each see their side |
+| GET | `/api/v1/orders/:id` | Bearer on the order | One order, with the parties and money shown per role |
+| GET | `/api/v1/orders/:id/thread` | Buyer or farmer on the order | The chat thread attached to an order, created with it |
+| POST | `/api/v1/orders` | Buyer Bearer, rate limited | Reserve stock and open an order. Oversell answers `409` |
+| POST | `/api/v1/orders/:id/pay` | Buyer Bearer | Ask the provider for a checkout URL for this order |
+| POST | `/api/v1/orders/:id/payment-check` | Buyer Bearer | Re-read the reference and mark the order funded when the money is in |
+| POST | `/api/v1/orders/:id/accept` | Farmer Bearer | Farmer accepts the order and moves it to `preparing` |
+| POST | `/api/v1/orders/:id/cancel` | Buyer or admin Bearer | Cancel before handover and put the quantity back on the listing |
+| POST | `/api/v1/payments/webhook` | Paystack signature | Provider callback. Sits ahead of auth because the HMAC is checked over the raw body |
+| POST | `/api/v1/payments/mock/complete` | Buyer Bearer | Settles a `mock` checkout so the loop is testable without a card |
+
+### Delivery, disputes, chat and KYC
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| GET | `/api/v1/deliveries/mine` | Driver Bearer | The runs assigned to the signed in driver |
+| GET | `/api/v1/deliveries/drivers` | Admin Bearer | Active driver accounts, for the dispatch picker |
+| POST | `/api/v1/deliveries/:id/dispatch` | Admin Bearer | Assign a driver, issue the six digit handover code, notify the buyer |
+| POST | `/api/v1/deliveries/:id/handover` | Driver Bearer | Driver enters the code the buyer read out. Five wrong tries locks it |
+| POST | `/api/v1/disputes` | Buyer or farmer, rate limited | Open a case with 1 to 4 photos, 3 MB for the set |
+| GET | `/api/v1/disputes` | Buyer or farmer Bearer | Own cases, newest first |
+| GET | `/api/v1/disputes/:id` | Party on the case | One case with its evidence |
+| POST | `/api/v1/disputes/:id/evidence` | Party on the case, rate limited | Add photos to an open case |
+| DELETE | `/api/v1/disputes/:id/evidence` | Author of the photo | Take own photo back down, by storage key |
+| GET | `/api/v1/conversations` | Buyer or farmer Bearer | Own threads, most recent message first, with unread counts |
+| GET | `/api/v1/conversations/:id` | Party on the thread | Read a thread and clear the caller's unread count |
+| POST | `/api/v1/conversations/:id/messages` | Party on the thread, rate limited | Send a message to the other side |
+| POST | `/api/v1/kyc` | Farmer Bearer | Submit farm, ID and bank details, with an optional document photo |
+| DELETE | `/api/v1/kyc/document` | Farmer Bearer | Withdraw the document photo |
+
+### Admin console
+
+Everything below is `requireSessionRole('admin')`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/v1/admin/counts` | Dashboard numbers: users, listings, orders, held money, open cases, KYC queue |
+| GET | `/api/v1/admin/users` | Search accounts by name, email or phone; filter by role, paged |
+| GET | `/api/v1/admin/complaints` | Support desk queue |
+| PATCH | `/api/v1/admin/complaints/:id` | Move a complaint to `under_review`, `resolved` or `closed` with a written reply |
+| GET | `/api/v1/admin/kyc` | Farmers waiting to be verified, with the bank details masked |
+| POST | `/api/v1/admin/kyc/:userId` | Approve or reject a KYC submission. Approval promotes the farm and frees its payout |
+| GET | `/api/v1/admin/orders` | Every order, filterable by status |
+| GET | `/api/v1/admin/settlements` | The payout ledger |
+| POST | `/api/v1/admin/settlements/:id/release` | Pay a farmer out. Refuses while a dispute is open or the KYC is unapproved |
+| GET | `/api/v1/admin/disputes` | Every case, open first |
+| POST | `/api/v1/admin/disputes/:id/rule` | Rule a case: refund the buyer, release the payout, or reject |
+| POST | `/api/v1/admin/listings/:id/moderate` | Take a listing down with a reason, or put a taken down one back up. A sold lot cannot be restored |
+| GET / PUT | `/api/v1/admin/settings` | Read or write `PlatformSettings` |
 
 Notes on the decisions encoded here:
 
@@ -89,11 +152,13 @@ Notes on the decisions encoded here:
 - **Login failures** return the same `Invalid credentials` message for unknown accounts and wrong passwords, so the
   API does not confirm which emails or numbers are registered. The recovery endpoints answer `202 accepted` whether or
   not the identifier exists, and the same for a suspended or already verified account.
-- **`role: 'admin'` cannot be self-registered** — the register endpoint only accepts `buyer` and `farmer`.
-- **JWT** carries `{ userId, role, tokenVersion }` and `requireRole(...)` is available for the role-gated endpoints
-  that come in Phase 2 (farmer KYC, admin verification). Every authenticated request re-reads the account, so a
-  suspension or a password reset takes effect at once rather than at token expiry: reset bumps `tokenVersion`, which
-  invalidates the older stateless tokens.
+- **`role: 'admin'` and `role: 'driver'` cannot be self-registered** — the register endpoint only accepts `buyer` and
+  `farmer`. Staff accounts come from `npm run seed:account` (see [Roles and staff accounts](#roles-and-staff-accounts)).
+- **JWT** carries `{ userId, role, tokenVersion }` and every role-gated route runs through
+  `requireSessionRole(...)`, which re-reads the account before the handler. A farmer cannot call a buyer endpoint, a
+  driver cannot open `/conversations`, and an outsider gets `403` on an order or a thread rather than a `404` that
+  leaks whether the id exists. A suspension or a password reset takes effect at once rather than at token expiry: reset
+  bumps `tokenVersion`, which invalidates the older stateless tokens.
 - **Complaints** may be filed by anyone, but a signed-in report always stores the account's own name, email and phone
   rather than whatever the form was filled with, so a report cannot be pointed at somebody else. Guests must supply a
   name and an email address. An invalid bearer token is rejected instead of being treated as a guest.
@@ -167,34 +232,195 @@ form is `live` or `halal_processed`, and the status moves between `active`, `sol
 (the user's text is escaped first), sorts by newest or price, and pages at 12 per request. Only `active` listings reach
 the marketplace; a `removed` one stays readable for its owner.
 
-## UI routes
+## Orders, money and delivery
 
-`/` landing page, `/marketplace` (filters, search, sort and paging over live listings), `/marketplace/:id` (photo
-gallery, price, farmer card), `/how-it-works`, `/contact` (support desk), `/register`, `/login`, `/forgot-password`,
-`/verify-email?token=…`, `/reset-password?token=…`, and role-guarded screens at `/buyer/dashboard`,
-`/farmer/dashboard`, `/farmer/post-livestock`, `/admin/dashboard`. `ProtectedRoute` redirects anonymous visitors to
-`/login` and remembers where they were heading; the session is restored from the stored token on reload via `/auth/me`.
+`server/src/services/orderFlow.ts` holds the whole state machine, so no controller can invent a transition.
 
-The dashboards carry an "Account checks" card for the two confirmations: a resend button for the email link and a code
-entry for the phone number. The farmer dashboard also carries "My listings": every listing on the account with its
-status, the photo strip (add while there is room, remove any but the last) and the buttons that mark a lot sold, put a
-taken down one back up or open the buyer's view of it. `/verify-email` and `/reset-password` are reachable while signed in or out, because
-a person arrives at them from an email. A successful password reset clears the stored token locally, since the server
-has just invalidated it.
+```
+awaiting_payment → funded → preparing → out_for_delivery → confirmed → completed
+        ↘ cancelled  (before handover)   ↘ refunded  (dispute ruled for the buyer)
+```
 
-Every page is checked at 360, 640, 768, 1024 and 1440 px for horizontal overflow. Below `md` the navigation collapses
-into a menu button.
+Money has its own field (`paymentState`: `unpaid`, `held`, `refunded`) so a hold does not rewrite delivery history, and
+payouts live in a separate ledger (`Settlement`: `pending`, `held`, `released`).
 
-## Money handling: what this platform does *not* claim
+- **Stock is reserved, not promised.** `POST /orders` takes quantity with a conditional `$inc`
+  (`status: 'active'` and `quantity >= n`). Two buyers on the last animal means one `409` saying how many are left, and
+  the loser never goes negative. A cancel puts the same quantity back.
+- **The total is snapshotted.** An order stores the title, species, form, unit, price, cover image and town at the
+  moment it was written, so a farmer editing the listing afterwards cannot change what the buyer agreed to.
+- **Fund checks the amount.** `markFunded` refuses a payment that does not equal `totalKobo` and treats the second
+  report of the same payment as a no-op, because the webhook and the browser can both arrive.
+- **The handover code is the only key.** Dispatch generates six digits, stores them with `select: false`, emails and
+  SMSes them to the buyer, and never returns them to the driver. The buyer reads them out at the roadside; the driver
+  types them into `/deliveries/:id/handover`. Five wrong tries locks the code until support dispatches a new one. The
+  payload only carries the code to the buyer or an admin while the order is `out_for_delivery`, and a replay is stopped
+  by the state machine itself: handover requires `out_for_delivery`, which a confirmed order has already left.
+- **Confirming opens the payout.** Handover moves the order to `confirmed` and writes a `Settlement` row in the same
+  call, using `splitCommission(totalKobo, commissionBps)`. The floor goes to the farmer, so a payout can never add up
+  to more than the buyer actually paid. 500 bps on ₦15,000 is ₦750 to the platform and ₦14,250 to the farm.
 
-Paystack is a licensed PSSP and merchant acquirer, **not** an escrow trustee, and it exposes no end-user escrow API.
-The design therefore collects payment to the platform merchant account and releases farmer payouts from an internal
+## Payments: mock and Paystack
+
+`PAYMENT_PROVIDER` chooses the implementation behind `server/src/services/paymentService.ts`.
+
+| Variable | Values | Notes |
+| --- | --- | --- |
+| `PAYMENT_PROVIDER` | `mock` (default), `paystack` | `mock` settles an order the moment its checkout link is opened, which is how the loop is tested without a card. **Refused when `NODE_ENV=production`.** |
+| `PAYSTACK_SECRET_KEY` | required with `paystack` | Server side: initialize transaction, verify reference. Never reaches the browser. |
+| `PAYSTACK_PUBLIC_KEY` | required with `paystack` | The key the checkout button uses. |
+| `PAYSTACK_WEBHOOK_SECRET` | required with `paystack` | The value typed into Paystack's dashboard for `POST /api/v1/payments/webhook`. |
+
+The webhook is mounted before authentication and before any body rewriting, because Paystack signs the raw bytes with
+HMAC-SHA512 and `rawBody` is captured for that check. A reference is only trusted after `verifyTransaction` returns it,
+so a browser claiming to have paid cannot fund an order on its own.
+
+Paystack is a licensed PSSP and merchant acquirer, **not** an escrow trustee, and it exposes no end-user escrow API. The
+design therefore collects payment to the platform merchant account and releases farmer payouts from an internal
 settlement ledger after delivery confirmation or expiry of the dispute window. Product copy must keep saying
 "payment received and safely held by Halal Livestocks under Buyer Protection terms" — never "licensed escrow".
 See `client/src/pages/public/HowItWorks.tsx`.
 
+## Disputes, chat and what stops a payout
+
+A thread is created with the order and belongs to its buyer and farmer only; drivers and admins are not parties to it.
+Unread counts are per side and reading a thread clears the reader's own.
+
+A case is opened with `reason`, a written account and **1 to 4 photos, 3 MB for the set** — the same batch rules as
+listings, enforced in the same service. Evidence is stored under `disputes/<userId>/`, deliberately apart from the
+listing folder so taking a listing down cannot delete the proof against it, and a photo can only be removed by the
+account that uploaded it.
+
+While a case is open, `order.disputeOpen` freezes the payout and any release attempt answers `409`. Ruling a case does
+one of three things: refund the buyer (money goes back, the settlement is marked `held` with the reason), release the
+payout, or reject the case and put a frozen payout back on the queue. Only a payout that this case froze goes back to
+`pending` — one that was sitting on unapproved bank details stays where it was.
+
+New cases are allowed from the moment the payment is held until `confirmedAt + disputeWindowDays`, then the window
+closes and the app points the buyer at the chat or support instead.
+
+## Farmer KYC and payouts
+
+`POST /api/v1/kyc` collects farm name, address, town, state, an ID type (`nin`, `passport`, `drivers_license`, `vusv`),
+ID number, optional CAC number, and the bank name, account name and a 10 or 11 digit account number. The document photo
+is optional because farmers photograph IDs badly on phones; an admin can ask for it later.
+
+The admin queue shows the submissions with the account number masked. Approving one stamps the farm as verified and
+frees any payout held for that reason; rejecting it needs a written note the farmer can read. A payout cannot be
+released to an unapproved account at all — that is the guard that keeps a mis-keyed account number from sending money
+nowhere.
+
+## Platform settings
+
+One document (`PlatformSettings`, keyed by `default`) holds the tunables, read once at boot and editable from the admin
+console. A fresh cluster gets the document on first use.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `commissionBps` | 500 (5%) | Share of the order value the platform keeps, in basis points. Rounded in the farmer's favour |
+| `disputeWindowDays` | 7 | Days after handover in which a case can still be opened |
+| `paymentsOpen` | `true` | Turning it off stops new checkouts while leaving existing orders readable |
+| `supportEmail` / `supportPhone` | placeholder | What the buyer and farmer screens tell people to contact |
+| `maintenanceNote` | empty | A short note the admin can leave. Only the console reads it back today |
+
+`GET /api/v1/platform` is public, so the farmer dashboard can state the real commission instead of a hardcoded number,
+and the same call is what a landing page notice would use later.
+
+## Roles and staff accounts
+
+Four roles: `buyer`, `farmer`, `driver`, `admin`. The first two self-register; the last two are made with a script,
+because nobody should be able to ask the API for an admin account.
+
+```bash
+cd server
+npm run seed:account -- --role admin --email you@example.com --name "Your Name" --phone 08031234567
+npm run seed:account -- --role driver --email driver@example.com --name "Driver Name" --phone 08098765432 --activate
+```
+
+Omit `--password` and a one time password is printed once, which should be changed after signing in. Staff skip the
+email and phone confirmation loop because there is no one left to approve them. `--activate` promotes an existing
+account in place and ends its older sessions, so a farmer who joins the team does not need a second row.
+
+## UI routes
+
+Public: `/` landing page, `/marketplace` (filters, search, sort and paging over live listings), `/marketplace/:id`
+(photo gallery, price, farmer card, order panel), `/how-it-works`, `/contact` (support desk), `/register`, `/login`,
+`/forgot-password`, `/verify-email?token=…`, `/reset-password?token=…`, `/checkout/mock` (the stand in for the
+provider's payment page while `PAYMENT_PROVIDER=mock`).
+
+Signed in, any role: `/orders` (the list, whichever side of the deal the caller is on) and `/orders/:id` (progress
+strip, money on the order, the dispatch card for an admin, the code box for a driver, the chat and dispute panels for
+buyer and farmer).
+
+Per role: `/buyer/dashboard`, `/farmer/dashboard`, `/farmer/post-livestock`, `/farmer/verify-farm` (KYC form and its
+status), `/deliveries` (the driver's runs and the code entry), `/admin/dashboard` (one console with tabs for the
+numbers, users, complaints, KYC, orders, payouts, cases, moderation and settings). `ProtectedRoute` redirects anonymous
+visitors to `/login` and remembers where they were heading; the session is restored from the stored token on reload via
+`/auth/me`, and a signed in account on the wrong route gets a plain "Not available for your account" notice rather than
+somebody else's console.
+
+The dashboards carry an "Account checks" card for the two confirmations: a resend button for the email link and a code
+entry for the phone number. The farmer dashboard also carries "My listings": every listing on the account with its
+status, the photo strip (add while there is room, remove any but the last) and the buttons that mark a lot sold, put a
+taken down one back up or open the buyer's view of it. `/verify-email` and `/reset-password` are reachable while signed
+in or out, because a person arrives at them from an email. A successful password reset clears the stored token locally,
+since the server has just invalidated it.
+
+Order screens are written to the same rule as the API: a buyer sees the handover code, the driver sees a box to type it
+in and never the code, and the payout bank details only reach the farmer who owns them.
+
+Every page is checked at 360, 640, 768, 1024 and 1440 px for horizontal overflow. Below `md` the navigation collapses
+into a menu button.
+
+## Environment checklist
+
+Only these two files belong in git: `server/.env.example` and `client/.env.example`. Copy them, fill the values, and
+never commit the result.
+
+**Server (`server/.env`)** — the boot refuses to start on a missing or malformed value and names the key that failed:
+
+| Key | Needed for | Notes |
+| --- | --- | --- |
+| `MONGODB_URI` | always | Atlas connection string. Create a database user rather than using the cluster owner |
+| `JWT_SECRET` | always | 64 hex characters: `node -p "require('crypto').randomBytes(32).toString('hex')"` |
+| `CLIENT_ORIGIN` | always | Comma separated browser origins allowed to call the API |
+| `MAIL_PROVIDER` + `BREVO_API_KEY`, `MAIL_FROM_EMAIL` | real email | `console` prints mail and is refused in production |
+| `SMS_PROVIDER` + `TERMII_API_KEY`, `TERMII_SENDER_ID` | real SMS | The handover code and phone codes go out this way |
+| `PUBLIC_APP_URL` | always | Base URL inside emailed links. Set to the deployed web app |
+| `PAYMENT_PROVIDER` + `PAYSTACK_SECRET_KEY`, `PAYSTACK_PUBLIC_KEY`, `PAYSTACK_WEBHOOK_SECRET` | taking money | `mock` is refused in production. Test keys first, live keys at launch |
+| `STORAGE_PROVIDER` + `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | real images | `local` writes under `server/uploads` and is refused in production, because a container has no durable disk |
+| `PUBLIC_API_URL` | `STORAGE_PROVIDER=local` | Base URL the image links are built from |
+
+**Client (`client/.env`)** — leave `VITE_API_BASE_URL` empty when a reverse proxy serves `/api/v1` from the same origin
+as the app, which is the usual deployment. Set it to the full versioned URL (`https://api.example.com/api/v1`) only when
+the API lives on another host. The dev server already proxies `/api` to `http://localhost:4000`, so nothing is needed
+locally.
+
+After the first boot: `GET /api/v1/platform` should answer, then create an admin and a driver with
+`npm run seed:account`, then set the real commission, dispute window and support contacts in the admin console before
+any farmer is invited.
+
+## Deploying
+
+The backend is deployable now: `npm run build` produces `dist/`, `npm start` runs it, `/health` answers for a load
+balancer, the process exits with a named error when the environment is wrong rather than booting half ready, and it
+connects to Atlas with `retryWrites` and a timeout. Nothing here needs Docker or a container of your own making — any
+Node 22 host that can read `server/.env` will run it. Before taking traffic: fill the four provider blocks above, since
+production boot deliberately fails while `MAIL_PROVIDER`, `SMS_PROVIDER`, `PAYMENT_PROVIDER` or `STORAGE_PROVIDER` is
+still on its local value.
+
+The frontend is a static build: `npm run build` in `client/` produces `dist/` (about 151 kB gzipped of JS), which any
+static host or Nginx can serve. Point the host at `index.html` for all routes, because the app is a single page
+application and a deep link to `/orders/123` must not 404.
+
+Not yet in place, and worth doing before a public launch: backups of the Atlas cluster, a shared rate limit store (the
+limiters are in process memory, so more than one instance multiplies every limit), log shipping, and a real SSL
+termination in front of both.
+
 ## Open product decisions
 
-The commission default (5–8%, proposed 6.5%), who pays platform delivery fees, transit mortality liability per delivery
-model, who qualifies as an authorized halal slaughterer for the MVP, and the auto-release window (proposed 24h) are
-tracked as configurable `PlatformSettings` values and still need sign-off.
+The commission (default 5%, configurable) and the dispute window (default 7 days, configurable) are live
+`PlatformSettings` values, so the sign-off is a settings change rather than a release. Still open: who pays platform
+delivery fees, transit mortality liability per delivery model, and who qualifies as an authorized halal slaughterer for
+the MVP. Automatic payout release when the dispute window closes without a case is **not** implemented — the admin
+releases by hand, which is the safer default while the ledger is small.

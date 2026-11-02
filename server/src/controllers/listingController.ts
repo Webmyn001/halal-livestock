@@ -26,7 +26,7 @@ import {
 } from '../validation/listingSchemas';
 
 const MEGABYTE = 1024 * 1024;
-const FARMER_FIELDS = 'fullName isEmailVerified isPhoneVerified';
+const FARMER_FIELDS = 'fullName farmerProfile.status';
 
 const SORTS: Record<'newest' | 'price_low' | 'price_high', Record<string, SortOrder>> = {
   newest: { createdAt: -1 },

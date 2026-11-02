@@ -1,4 +1,5 @@
 import { Schema, model, type HydratedDocument, type PopulatedDoc } from 'mongoose';
+import { refId } from '../utils/refId';
 import type { UserDoc } from './User';
 
 export const LISTING_SPECIES = ['rabbit', 'poultry', 'sheep', 'goat'] as const;
@@ -80,8 +81,8 @@ listingSchema.index({ species: 1, listingType: 1, status: 1 });
  * request is made of. Everyone else sees the picture and nothing else.
  */
 export function toPublicListing(listing: ListingDoc, viewerId?: string) {
-  const farmer = listing.farmerId as unknown as { id: string; fullName: string; isEmailVerified: boolean; isPhoneVerified: boolean } | null;
-  const isOwner = viewerId !== undefined && String(farmer?.id ?? '') === viewerId;
+  const farmer = listing.farmerId as unknown as { fullName?: string; farmerProfile?: { status?: string } } | null;
+  const isOwner = viewerId !== undefined && refId(listing.farmerId) === viewerId;
 
   return {
     id: listing.id,
@@ -106,9 +107,9 @@ export function toPublicListing(listing: ListingDoc, viewerId?: string) {
     })),
     farmer: farmer
       ? {
-          id: String(farmer.id),
+          id: refId(listing.farmerId),
           fullName: farmer.fullName,
-          isVerified: farmer.isEmailVerified && farmer.isPhoneVerified,
+          isVerified: farmer.farmerProfile?.status === 'approved',
         }
       : null,
   };
