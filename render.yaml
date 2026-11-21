@@ -2,11 +2,10 @@
 # Render reads this file and creates both services in one pass.
 #
 # Every key marked `sync: false` is a secret or a URL you fill in once in the dashboard, so nothing
-# sensitive lives in git. After the services exist, two more steps are needed and neither can be
-# declared here:
-#   1. Static site > Settings > Redirects & Rewrites > add  Source /*  Target /index.html  Rewrite 200
-#   2. Paystack > Webhooks > add https://<api url>/api/v1/payments/webhook and copy its generated
+# sensitive lives in git. After the services exist, two steps still need the dashboard:
+#   1. Paystack > Webhooks > add https://<api url>/api/v1/payments/webhook and copy its generated
 #      secret into PAYSTACK_WEBHOOK_SECRET
+#   2. MongoDB Atlas > Network Access > allow the API's outbound IPs
 # Both are written up in README.md under "Deploying to Render".
 
 services:
@@ -65,13 +64,19 @@ services:
       - key: CLOUDINARY_API_SECRET
         sync: false
 
-  - type: static
+  # Render blueprints declare static sites as a web service with runtime: static.
+  - type: web
     name: halal-livestocks-web
+    runtime: static
     rootDir: client
-    plan: free
     branch: main
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
+    # Client-side routes need index.html; a rewrite answers 200 and keeps the URL intact.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       # Baked into the bundle at build time, not read at runtime. Set it to the API service URL
       # plus /api/v1, for example https://halal-livestocks-api.onrender.com/api/v1, then rebuild.

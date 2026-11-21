@@ -440,16 +440,9 @@ at each other:
 `VITE_API_BASE_URL` is baked into the bundle when Vite builds, not read at runtime, so changing it needs a redeploy of
 the static site. `CLIENT_ORIGIN` is read when the API boots, so a restart is enough there.
 
-**Then add the SPA rewrite, which a blueprint cannot declare.** Open the static site in the dashboard and go to
-**Settings > Redirects & Rewrites** and add:
-
-```
-Source /*   Target /index.html   Action Rewrite   Status 200
-```
-
-Without it, `/marketplace`, `/orders/:id` and every other deep link answers `404`, because only `index.html` exists on
-disk. Use a **rewrite** at status `200`, not a redirect: a `301` changes the address in the buyer's browser and the app
-re-renders from the wrong URL.
+The blueprint also declares the SPA rewrite (`/*` → `/index.html`, rewrite 200), so deep links such as `/marketplace`
+and `/orders/:id` resolve without a manual dashboard step. A rewrite keeps the address in the browser intact; a redirect
+would change it to `/index.html` and make the app render from the wrong URL.
 
 **Then open Atlas.** The API's egress address has to be in the cluster's IP access list, or every request dies with a
 connection timeout rather than an application error. The addresses are on the web service page under **Connect >
