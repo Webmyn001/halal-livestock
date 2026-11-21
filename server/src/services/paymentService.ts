@@ -102,21 +102,83 @@ export async function refundPayment(reference: string, amountKobo: number): Prom
   return data.reference;
 }
 
+const SIGNATURE_TOLERANCE_SECONDS = 300;
+
 /**
- * A webhook is only trusted when the HMAC over the exact bytes matches, so the raw body is
- * compared rather than a re-serialized copy of it.
+ * Verify over the exact bytes Paystack signed. A JSON parser that re-serializes the body changes
+ * spacing and number formats, so the signature no longer matches.
+ *
+ * Current integrations send `Paystack-Signature` with a timestamp and a `whsec_` signing secret.
+ * Older integrations still send `x-paystack-signature`, which is signed with the secret key. Both
+ * are accepted so a dashboard secret can be rotated without a webhook outage.
  */
-export function isTrustedWebhook(rawBody: Buffer | undefined, signature: string | undefined): boolean {
-  if (!rawBody || !signature || !env.PAYSTACK_WEBHOOK_SECRET) return false;
+export function isTrustedWebhook(
+  rawBody: Buffer | undefined,
+  legacySignature: string | undefined,
+  signedHeader?: string | undefined
+): boolean {
+  if (!rawBody) return false;
 
-  const expected = createHmac('sha512', env.PAYSTACK_WEBHOOK_SECRET).update(rawBody).digest('hex');
-  const provided = Buffer.from(signature, 'utf8');
-  const actual = Buffer.from(expected, 'utf8');
+  if (signedHeader && env.PAYSTACK_WEBHOOK_SECRET && verifySignedHeader(rawBody, signedHeader, env.PAYSTACK_WEBHOOK_SECRET)) {
+    return true;
+  }
 
-  // A length mismatch would throw inside timingSafeEqual, and a forged signature is the case
-  // this guard exists for.
-  if (provided.length !== actual.length) return false;
-  return timingSafeEqual(provided, actual);
+  if (legacySignature && env.PAYSTACK_SECRET_KEY && verifyLegacySignature(rawBody, legacySignature, env.PAYSTACK_SECRET_KEY)) {
+    return true;
+  }
+
+  // Keeps deployments that still put the secret key in PAYSTACK_WEBHOOK_SECRET working.
+  if (
+    legacySignature &&
+    env.PAYSTACK_WEBHOOK_SECRET &&
+    verifyLegacySignature(rawBody, legacySignature, env.PAYSTACK_WEBHOOK_SECRET)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function verifySignedHeader(rawBody: Buffer, header: string, secret: string): boolean {
+  let timestamp: number | undefined;
+  const signatures: string[] = [];
+
+  // `t=1760270400,v1=whk_<key id>:<hex>`. An event may carry several v1 entries during a secret
+  // rotation, so collect all of them and accept if any matches. Ignore unknown fields.
+  for (const part of header.split(',')) {
+    const separator = part.indexOf('=');
+    if (separator < 0) continue;
+    const key = part.slice(0, separator).trim();
+    const value = part.slice(separator + 1).trim();
+
+    if (key === 't') {
+      if (timestamp !== undefined || !/^\d+$/.test(value)) return false;
+      timestamp = Number(value);
+    } else if (key === 'v1') {
+      const colon = value.indexOf(':');
+      if (colon > 0) signatures.push(value.slice(colon + 1));
+    }
+  }
+
+  if (timestamp === undefined || signatures.length === 0) return false;
+
+  // A replayed event must not be accepted forever.
+  const age = Math.abs(Math.floor(Date.now() / 1000) - timestamp);
+  if (!Number.isFinite(age) || age > SIGNATURE_TOLERANCE_SECONDS) return false;
+
+  const expected = createHmac('sha512', secret).update(`${timestamp}.`).update(rawBody).digest();
+  return signatures.some((hex) => /^[0-9a-f]{128}$/.test(hex) && verifyHex(expected, hex));
+}
+
+function verifyLegacySignature(rawBody: Buffer, signature: string, secret: string): boolean {
+  if (!/^[0-9a-f]{128}$/.test(signature)) return false;
+  const expected = createHmac('sha512', secret).update(rawBody).digest();
+  return verifyHex(expected, signature);
+}
+
+function verifyHex(expected: Buffer, hex: string): boolean {
+  const provided = Buffer.from(hex, 'hex');
+  return provided.length === expected.length && timingSafeEqual(expected, provided);
 }
 
 interface MockRecord {

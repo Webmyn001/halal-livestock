@@ -275,7 +275,9 @@ builds, so only the server holds a Paystack credential. A future inline popup in
 key, and nothing today does.
 
 The webhook is mounted before authentication and before any body rewriting, because Paystack signs the raw bytes with
-HMAC-SHA512 and `rawBody` is captured for that check. A reference is only trusted after `verifyTransaction` returns it,
+HMAC-SHA512 and `rawBody` is captured for that check. Current callbacks carry `Paystack-Signature`, verified with the
+`whsec_` secret from the dashboard and a five-minute timestamp tolerance. `x-paystack-signature` signed with
+`PAYSTACK_SECRET_KEY` is still accepted as a fallback. A reference is only trusted after `verifyTransaction` returns it,
 so a browser claiming to have paid cannot fund an order on its own.
 
 Paystack is a licensed PSSP and merchant acquirer, **not** an escrow trustee, and it exposes no end-user escrow API. The
@@ -450,10 +452,10 @@ Outbound**. Free instances share addresses that can change after a redeploy, so 
 cannot reach the database; a paid instance gives you addresses that do not move.
 
 **Then the webhook.** In the Paystack dashboard add `https://<api-url>/api/v1/payments/webhook` and turn on the
-`charge.success` and `charge.complete` events, which are the two this handler reads. Copy the secret Paystack generates
-into `PAYSTACK_WEBHOOK_SECRET` and restart the API. The signature check has nothing to compare against until that value
-matches Paystack's, and an order can also be funded by the buyer's own `POST /orders/:id/payment-check` call, so a
-missing webhook delays the loop rather than breaking it.
+`charge.success` and `charge.complete` events, which are the two this handler reads. Copy the generated `whsec_`
+signing secret into `PAYSTACK_WEBHOOK_SECRET` and redeploy/restart the API. The signature check has nothing to compare
+against until that value matches Paystack's, and an order can also be funded by the buyer's own
+`POST /orders/:id/payment-check` call, so a missing webhook delays the loop rather than breaking it.
 
 Two things to expect from the free tier: an idle API sleeps and the first request after a pause waits about 50 seconds,
 and the deploy health check is `/health` at the root, not under `/api/v1`.

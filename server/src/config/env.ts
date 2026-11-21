@@ -29,8 +29,8 @@ const envSchema = z.object({
   // a Paystack key: it is sent the hosted checkout URL this API builds after verifying the amount.
   PAYMENT_PROVIDER: z.enum(['mock', 'paystack']).default('mock'),
   PAYSTACK_SECRET_KEY: z.string().optional(),
-  // The value set on the Paystack dashboard for this webhook. The signature check is nothing
-  // without it, so a production deployment cannot run without one.
+  // The whsec_ signing secret generated with the webhook on the Paystack dashboard. It signs the
+  // Paystack-Signature header; the older x-paystack-signature check uses PAYSTACK_SECRET_KEY as a fallback.
   PAYSTACK_WEBHOOK_SECRET: z.string().optional(),
 
   // Image storage. 'local' writes under the server folder and is only allowed outside production.

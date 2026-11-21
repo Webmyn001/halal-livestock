@@ -21,7 +21,7 @@ export async function paystackWebhook(req: Request, res: Response): Promise<void
     return;
   }
 
-  if (!isTrustedWebhook(req.rawBody, req.header('x-paystack-signature'))) {
+  if (!isTrustedWebhook(req.rawBody, req.header('x-paystack-signature'), req.header('paystack-signature'))) {
     logger.warn('Rejected an unverifiable Paystack webhook');
     throw ApiError.unauthorized('That webhook signature is not valid');
   }
