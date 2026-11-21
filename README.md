@@ -467,13 +467,14 @@ Both services can be made by hand with the same values.
 | Repository | `Webmyn001/halal-livestock` | same |
 | Root directory | `server` | `client` |
 | Runtime | Node | static |
-| Build command | `npm ci && npm run build` | `npm ci && npm run build` |
+| Build command | `npm ci --include=dev && npm run build` | `npm ci --include=dev && npm run build` |
 | Start command | `npm start` | — |
 | Publish directory | — | `dist` |
 | Health check path | `/health` | — |
 | Environment | the whole `server/.env` list, with `NODE_ENV=production` | `VITE_API_BASE_URL` |
 
-`npm ci` works because both `package-lock.json` files are committed, and Render's own `PORT` is honored: the server
+`npm ci --include=dev` works because both `package-lock.json` files are committed; `--include=dev` is needed because
+`NODE_ENV=production` would otherwise prune `typescript` and `@types/node` before the build. Render's own `PORT` is honored: the server
 binds `env.PORT` and exits cleanly on `SIGTERM`, so Render's restart cycle does not orphan a Mongo connection. Render
 terminates SSL for its own `onrender.com` addresses, so the SSL line above is about a custom domain in front of your own
 host, not about this setup.
