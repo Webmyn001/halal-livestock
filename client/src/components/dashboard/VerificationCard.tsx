@@ -10,7 +10,7 @@ export function VerificationCard() {
   const { user, refresh } = useAuth();
 
   const [code, setCode] = useState('');
-  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [codeSent, setCodeSent] = useState(false);
   const [error, setError] = useState('');
   const [emailSent, setEmailSent] = useState(false);
   const [busy, setBusy] = useState<'email' | 'send' | 'confirm' | null>(null);
@@ -48,8 +48,8 @@ export function VerificationCard() {
     setError('');
     setBusy('send');
     try {
-      const data = await authService.sendPhoneCode();
-      setSentTo(data.lastFour);
+      await authService.sendPhoneCode();
+      setCodeSent(true);
       setEmailSent(false);
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : 'Could not send a code.');
@@ -66,7 +66,7 @@ export function VerificationCard() {
       await authService.confirmPhone(code);
       await refresh();
       setCode('');
-      setSentTo(null);
+      setCodeSent(false);
     } catch (err) {
       setError(err instanceof ApiRequestError ? err.message : 'That code was not accepted.');
     } finally {
@@ -116,7 +116,7 @@ export function VerificationCard() {
             <p className="text-sm font-medium text-ink-900">Phone number</p>
             <p className="mt-0.5 text-xs text-ink-500">{user.phoneNumber}</p>
 
-            {sentTo ? (
+            {codeSent ? (
               <form onSubmit={handleConfirm} className="mt-3.5 space-y-3">
                 <Input
                   label="Six digit code"
@@ -125,7 +125,7 @@ export function VerificationCard() {
                   autoComplete="one-time-code"
                   maxLength={6}
                   required
-                  hint={`We sent a code ending in ${sentTo}. It expires in 10 minutes.`}
+                  hint="We emailed the code to the address on your account. It expires in 10 minutes."
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                   className="font-mono tracking-[0.3em]"
@@ -148,7 +148,7 @@ export function VerificationCard() {
             ) : (
               <div className="mt-3.5 flex items-center gap-3">
                 <Button size="sm" onClick={handleSendCode} isLoading={busy === 'send'}>
-                  Send code by SMS
+                  Send code by email
                 </Button>
                 {busy === 'send' ? <Spinner className="size-4 text-brand-600" /> : null}
               </div>

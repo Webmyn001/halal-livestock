@@ -58,7 +58,7 @@ const linkLimiter = rateLimit({
   message: rateMessage(15),
 });
 
-const smsLimiter = rateLimit({
+const codeLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   limit: 5,
   standardHeaders: true,
@@ -94,7 +94,7 @@ authRouter.post(
 
 authRouter.post(
   '/phone/send-code',
-  smsLimiter,
+  codeLimiter,
   verifyToken,
   requestPhoneCode
 );

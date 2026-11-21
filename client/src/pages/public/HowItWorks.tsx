@@ -17,13 +17,13 @@ const STEPS = [
   },
   {
     title: 'Raise a dispute if something is wrong',
-    body: 'Death in transit, wrong animal, short quantity or no delivery at all can be disputed with photo evidence inside the 24 hour window. The payout stays locked while an admin reviews it.',
+    body: 'An injured animal, a short count, stock that is not as described or a delivery that never arrives can all be disputed with photo evidence, from the moment the payment is held until the dispute window on the order closes. The payout stays locked while an admin reads the case.',
   },
 ];
 
 const HALAL_RULES = [
-  'Processed listings must name the slaughterer, the date and the place of slaughter.',
-  'A seller cannot mix live stock and dressed meat in one listing.',
+  'Live animals and processed stock are separate categories, so a listing cannot mix the two.',
+  'An admin takes down a listing that misrepresents the animal, the town or how it was raised.',
   'Farmers who fail the identity check keep the unverified label and lose access to the verified badge.',
 ];
 
@@ -67,8 +67,8 @@ export function HowItWorksPage() {
           <h2 className="text-2xl font-bold text-ink-900">How a held payment works</h2>
           <Alert tone="info" title="Read this before you move money">
             Halal Livestocks is a marketplace operator. Payments are collected to our merchant account and released to
-            farmers from an internal settlement ledger after delivery is confirmed or the dispute window closes.
-            Refunds go back through Paystack.
+            farmers from an internal settlement ledger once the handover code is accepted and the farm's payout account
+            has been checked. Refunds go back through Paystack.
           </Alert>
           <Link to="/register">
             <Button size="lg">Create a free account</Button>

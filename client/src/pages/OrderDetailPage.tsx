@@ -260,7 +260,7 @@ export function OrderDetailPage() {
             <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
               <h2 className="font-display text-lg font-semibold text-ink-900">Send a driver</h2>
               <p className="mt-2 text-sm leading-relaxed text-ink-500">
-                Choosing a driver generates the collection code and sends it to the buyer by email and SMS.
+                Choosing a driver generates the collection code and emails it to the buyer. The driver never sees it.
               </p>
               <form onSubmit={handleDispatch} className="mt-5 space-y-4">
                 <label className="block">

@@ -76,7 +76,7 @@ All responses use one envelope: `{ success: true, data }` or
 | POST | `/api/v1/auth/resend-verification` | rate limited | Send a fresh link; the previous one stops working |
 | POST | `/api/v1/auth/forgot-password` | rate limited | Email a reset link. Always 202 |
 | POST | `/api/v1/auth/reset-password` | rate limited | Set a new password and end every older session |
-| POST | `/api/v1/auth/phone/send-code` | Bearer, rate limited | SMS a six digit code to the number on the account |
+| POST | `/api/v1/auth/phone/send-code` | Bearer, rate limited | Email a six digit code to the address on the account |
 | POST | `/api/v1/auth/phone/confirm` | Bearer, rate limited | Verify the number with that code |
 | PUT | `/api/v1/users/profile` | Bearer | Update own name/phone only |
 | GET | `/api/v1/listings` | — | Public marketplace page: filters by `species`, `type`, `q`, `sort`, `page` |
@@ -165,28 +165,28 @@ Notes on the decisions encoded here:
 
 ## Emails, codes and providers
 
-Verification links, reset links and phone codes share one design: the value is generated randomly, only its SHA-256
-digest is stored in `verificationtokens`, each row carries an `expiresAt` with a MongoDB TTL index (so abandoned links
-clean themselves up), and a row is deleted the moment it is used. Issuing a new token for the same purpose deletes the
-older one, which is why "resend" invalidates the previous email. Lifetimes are 24 hours for email confirmation,
-30 minutes for a password reset and 10 minutes for an SMS code; a code also dies after 5 wrong guesses.
+Verification links, reset links and confirmation codes share one design: the value is generated randomly, only its
+SHA-256 digest is stored in `verificationtokens`, each row carries an `expiresAt` with a MongoDB TTL index (so abandoned
+links clean themselves up), and a row is deleted the moment it is used. Issuing a new token for the same purpose deletes
+the older one, which is why "resend" invalidates the previous email. Lifetimes are 24 hours for email confirmation,
+30 minutes for a password reset and 10 minutes for a confirmation code; a code also dies after 5 wrong guesses.
 
-Delivery goes through `server/src/services/notificationService.ts` and is chosen by environment variable:
+Email is the only outbound channel. There is no SMS provider, no sender ID and no per-message telecom cost:
+verification codes, handover codes and payout notices are all delivered by Brevo. Delivery goes through
+`server/src/services/notificationService.ts` and is chosen by environment variable:
 
 | Variable | Values | Notes |
 | --- | --- | --- |
 | `MAIL_PROVIDER` | `console` (default), `brevo` | `console` prints the message to the server log. It is refused when `NODE_ENV=production`. |
 | `BREVO_API_KEY`, `MAIL_FROM_EMAIL`, `MAIL_FROM_NAME` | required with `brevo` | Boot fails with a named variable if they are missing. |
-| `SMS_PROVIDER` | `console` (default), `termii` | `console` prints the code so local testing can use it. |
-| `TERMII_API_KEY`, `TERMII_SENDER_ID` | required with `termii` | The payload follows Termii's SMS v1 shape; re-check it against their docs before going live. |
 | `PUBLIC_APP_URL` | default `http://localhost:5173` | Base URL used inside the emailed links. |
 
 Provider failures are logged and swallowed: a Brevo outage must not turn `forgot-password` into a way to test which
 addresses are registered. Emails are built as HTML in `server/src/services/authMessages.ts`, with the user's name
 escaped and a plain text part alongside.
 
-To switch to real delivery: set `MAIL_PROVIDER=brevo` plus `BREVO_API_KEY` and `MAIL_FROM_EMAIL` (verify the sending
-domain in the Brevo dashboard first), and `SMS_PROVIDER=termii` with `TERMII_API_KEY`.
+To switch to real delivery: verify the sending domain in the Brevo dashboard, then set `MAIL_PROVIDER=brevo` plus
+`BREVO_API_KEY` and `MAIL_FROM_EMAIL`. That is the whole list.
 
 ## Images and storage
 
@@ -251,8 +251,8 @@ payouts live in a separate ledger (`Settlement`: `pending`, `held`, `released`).
   moment it was written, so a farmer editing the listing afterwards cannot change what the buyer agreed to.
 - **Fund checks the amount.** `markFunded` refuses a payment that does not equal `totalKobo` and treats the second
   report of the same payment as a no-op, because the webhook and the browser can both arrive.
-- **The handover code is the only key.** Dispatch generates six digits, stores them with `select: false`, emails and
-  SMSes them to the buyer, and never returns them to the driver. The buyer reads them out at the roadside; the driver
+- **The handover code is the only key.** Dispatch generates six digits, stores them with `select: false`, emails them
+  to the buyer, and never returns them to the driver. The buyer reads them out at the roadside; the driver
   types them into `/deliveries/:id/handover`. Five wrong tries locks the code until support dispatches a new one. The
   payload only carries the code to the buyer or an admin while the order is `out_for_delivery`, and a replay is stopped
   by the state machine itself: handover requires `out_for_delivery`, which a confirmed order has already left.
@@ -268,8 +268,11 @@ payouts live in a separate ledger (`Settlement`: `pending`, `held`, `released`).
 | --- | --- | --- |
 | `PAYMENT_PROVIDER` | `mock` (default), `paystack` | `mock` settles an order the moment its checkout link is opened, which is how the loop is tested without a card. **Refused when `NODE_ENV=production`.** |
 | `PAYSTACK_SECRET_KEY` | required with `paystack` | Server side: initialize transaction, verify reference. Never reaches the browser. |
-| `PAYSTACK_PUBLIC_KEY` | required with `paystack` | The key the checkout button uses. |
-| `PAYSTACK_WEBHOOK_SECRET` | required with `paystack` | The value typed into Paystack's dashboard for `POST /api/v1/payments/webhook`. |
+| `PAYSTACK_WEBHOOK_SECRET` | required with `paystack` | The secret Paystack generates for the endpoint, copied out of its dashboard. Needed for the signature check on `POST /api/v1/payments/webhook`. |
+
+There is deliberately no Paystack public key in this project. The browser is sent the hosted checkout URL that this API
+builds, so only the server holds a Paystack credential. A future inline popup integration would need a `VITE_` public
+key, and nothing today does.
 
 The webhook is mounted before authentication and before any body rewriting, because Paystack signs the raw bytes with
 HMAC-SHA512 and `rawBody` is captured for that check. A reference is only trusted after `verifyTransaction` returns it,
@@ -384,10 +387,9 @@ never commit the result.
 | `MONGODB_URI` | always | Atlas connection string. Create a database user rather than using the cluster owner |
 | `JWT_SECRET` | always | 64 hex characters: `node -p "require('crypto').randomBytes(32).toString('hex')"` |
 | `CLIENT_ORIGIN` | always | Comma separated browser origins allowed to call the API |
-| `MAIL_PROVIDER` + `BREVO_API_KEY`, `MAIL_FROM_EMAIL` | real email | `console` prints mail and is refused in production |
-| `SMS_PROVIDER` + `TERMII_API_KEY`, `TERMII_SENDER_ID` | real SMS | The handover code and phone codes go out this way |
+| `MAIL_PROVIDER` + `BREVO_API_KEY`, `MAIL_FROM_EMAIL` | everything that reaches a user | The only outbound channel: codes, handover codes, reset links. `console` prints mail and is refused in production |
 | `PUBLIC_APP_URL` | always | Base URL inside emailed links. Set to the deployed web app |
-| `PAYMENT_PROVIDER` + `PAYSTACK_SECRET_KEY`, `PAYSTACK_PUBLIC_KEY`, `PAYSTACK_WEBHOOK_SECRET` | taking money | `mock` is refused in production. Test keys first, live keys at launch |
+| `PAYMENT_PROVIDER` + `PAYSTACK_SECRET_KEY`, `PAYSTACK_WEBHOOK_SECRET` | taking money | `mock` is refused in production. Test keys first, live keys at launch |
 | `STORAGE_PROVIDER` + `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | real images | `local` writes under `server/uploads` and is refused in production, because a container has no durable disk |
 | `PUBLIC_API_URL` | `STORAGE_PROVIDER=local` | Base URL the image links are built from |
 
@@ -405,17 +407,83 @@ any farmer is invited.
 The backend is deployable now: `npm run build` produces `dist/`, `npm start` runs it, `/health` answers for a load
 balancer, the process exits with a named error when the environment is wrong rather than booting half ready, and it
 connects to Atlas with `retryWrites` and a timeout. Nothing here needs Docker or a container of your own making — any
-Node 22 host that can read `server/.env` will run it. Before taking traffic: fill the four provider blocks above, since
-production boot deliberately fails while `MAIL_PROVIDER`, `SMS_PROVIDER`, `PAYMENT_PROVIDER` or `STORAGE_PROVIDER` is
-still on its local value.
+Node 22 host that can read the environment will run it. Before taking traffic, note what production actually refuses:
+`MAIL_PROVIDER=console`, `STORAGE_PROVIDER=local` and `PAYMENT_PROVIDER=mock` all fail the boot, so Brevo, Cloudinary and
+Paystack keys are required. With `MAIL_PROVIDER=console` the code is printed to the log instead of emailed, which is
+usable for a test and useless to a real buyer.
 
-The frontend is a static build: `npm run build` in `client/` produces `dist/` (about 151 kB gzipped of JS), which any
-static host or Nginx can serve. Point the host at `index.html` for all routes, because the app is a single page
-application and a deep link to `/orders/123` must not 404.
+The frontend is a static build: `npm run build` in `client/` typechecks then produces `dist/` (about 151 kB gzipped of JS
+plus the 8 marketing photos under `public/images`). Point the host at `index.html` for all routes, because the app is a
+single page application and a deep link to `/orders/123` must not 404.
 
 Not yet in place, and worth doing before a public launch: backups of the Atlas cluster, a shared rate limit store (the
 limiters are in process memory, so more than one instance multiplies every limit), log shipping, and a real SSL
 termination in front of both.
+
+## Deploying to Render
+
+`render.yaml` at the repo root is a Render blueprint that creates both services in one pass. Push the branch, then in the
+Render dashboard choose **New > Blueprint**, connect the GitHub repository, and Render reads that file. Secrets marked
+`sync: false` are asked for in the dashboard form, so no key ever sits in git. A `NODE_VERSION` of 22 is pinned because
+Vite 8 needs Node 22.12 or later, and Render would otherwise pick its own default.
+
+**Order matters.** The web service is created first, so create it, wait for its URL, then set the two values that point
+at each other:
+
+| Where | Variable | Value |
+| --- | --- | --- |
+| API web service | `CLIENT_ORIGIN` | The static site URL exactly as Render gives it, e.g. `https://halallivestocks.onrender.com`. No trailing slash and no path |
+| API web service | `PUBLIC_APP_URL` | Same static site URL. Email links are built from it |
+| API web service | `PUBLIC_API_URL` | The API URL, e.g. `https://halal-livestocks-api.onrender.com`. Only matters for image URLs |
+| Static site | `VITE_API_BASE_URL` | The API URL **plus** `/api/v1`, e.g. `https://halal-livestocks-api.onrender.com/api/v1` |
+
+`VITE_API_BASE_URL` is baked into the bundle when Vite builds, not read at runtime, so changing it needs a redeploy of
+the static site. `CLIENT_ORIGIN` is read when the API boots, so a restart is enough there.
+
+**Then add the SPA rewrite, which a blueprint cannot declare.** Open the static site in the dashboard and go to
+**Settings > Redirects & Rewrites** and add:
+
+```
+Source /*   Target /index.html   Action Rewrite   Status 200
+```
+
+Without it, `/marketplace`, `/orders/:id` and every other deep link answers `404`, because only `index.html` exists on
+disk. Use a **rewrite** at status `200`, not a redirect: a `301` changes the address in the buyer's browser and the app
+re-renders from the wrong URL.
+
+**Then open Atlas.** The API's egress address has to be in the cluster's IP access list, or every request dies with a
+connection timeout rather than an application error. The addresses are on the web service page under **Connect >
+Outbound**. Free instances share addresses that can change after a redeploy, so re-check the list when the API suddenly
+cannot reach the database; a paid instance gives you addresses that do not move.
+
+**Then the webhook.** In the Paystack dashboard add `https://<api-url>/api/v1/payments/webhook` and turn on the
+`charge.success` and `charge.complete` events, which are the two this handler reads. Copy the secret Paystack generates
+into `PAYSTACK_WEBHOOK_SECRET` and restart the API. The signature check has nothing to compare against until that value
+matches Paystack's, and an order can also be funded by the buyer's own `POST /orders/:id/payment-check` call, so a
+missing webhook delays the loop rather than breaking it.
+
+Two things to expect from the free tier: an idle API sleeps and the first request after a pause waits about 50 seconds,
+and the deploy health check is `/health` at the root, not under `/api/v1`.
+
+### If you would rather not use the blueprint
+
+Both services can be made by hand with the same values.
+
+| Setting | API (Render Web Service) | Web app (Render Static Site) |
+| --- | --- | --- |
+| Repository | `Webmyn001/halal-livestock` | same |
+| Root directory | `server` | `client` |
+| Runtime | Node | static |
+| Build command | `npm ci && npm run build` | `npm ci && npm run build` |
+| Start command | `npm start` | — |
+| Publish directory | — | `dist` |
+| Health check path | `/health` | — |
+| Environment | the whole `server/.env` list, with `NODE_ENV=production` | `VITE_API_BASE_URL` |
+
+`npm ci` works because both `package-lock.json` files are committed, and Render's own `PORT` is honored: the server
+binds `env.PORT` and exits cleanly on `SIGTERM`, so Render's restart cycle does not orphan a Mongo connection. Render
+terminates SSL for its own `onrender.com` addresses, so the SSL line above is about a custom domain in front of your own
+host, not about this setup.
 
 ## Open product decisions
 

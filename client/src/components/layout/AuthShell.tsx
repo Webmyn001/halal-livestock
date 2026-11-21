@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 
 const POINTS = [
   'Farmers prove who they are before a listing gets the verified badge.',
-  'Live animals travel no more than eight hours from the farm gate.',
-  'The payout waits until the buyer accepts the delivery.',
+  'The buyer checks the animals and hands over a six digit code in person.',
+  'The payout waits until that code is accepted.',
 ];
 
 export function AuthShell({ title, caption, children }: { title: string; caption: string; children: ReactNode }) {

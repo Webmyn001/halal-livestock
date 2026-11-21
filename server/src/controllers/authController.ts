@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { User, hashPassword, toPublicUser, type UserDoc } from '../models/User';
-import { sendEmailVerification, sendPasswordReset, sendPhoneOtp } from '../services/authMessages';
+import { sendEmailVerification, sendPasswordReset, sendVerificationCode } from '../services/authMessages';
 import { consumeCode, consumeLink, issueToken } from '../services/verificationTokens';
 import { ApiError } from '../utils/ApiError';
 import { sendSuccess } from '../utils/apiResponse';
@@ -154,9 +154,10 @@ export async function requestPhoneCode(req: Request, res: Response): Promise<voi
   if (user.isPhoneVerified) throw ApiError.badRequest('This phone number is already confirmed');
 
   const code = await issueToken(user.id, 'phone_otp');
-  await deliver(sendPhoneOtp(user, code));
+  await deliver(sendVerificationCode(user, code));
 
-  sendSuccess(res, { accepted: true, lastFour: user.phoneNumber.slice(-4) }, 202);
+  // No SMS channel, so the code lands in the inbox already tied to this account.
+  sendSuccess(res, { accepted: true }, 202);
 }
 
 export async function confirmPhone(req: Request, res: Response): Promise<void> {

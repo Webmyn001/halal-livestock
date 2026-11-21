@@ -44,34 +44,3 @@ async function deliverWithBrevo(message: EmailMessage): Promise<void> {
     throw new Error('Email delivery failed');
   }
 }
-
-export async function sendSms(to: string, body: string): Promise<void> {
-  if (env.SMS_PROVIDER === 'termii') {
-    await deliverWithTermii(to, body);
-    return;
-  }
-
-  logger.info('SMS queued (console transport)', { to, body });
-}
-
-async function deliverWithTermii(to: string, body: string): Promise<void> {
-  // Payload follows Termii's SMS v1 shape; re-check it against their docs when a real key is wired up.
-  const response = await fetch('https://api.termii.com/message/sms', {
-    method: 'POST',
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    headers: { 'content-type': 'application/json', accept: 'application/json' },
-    body: JSON.stringify({
-      api_key: env.TERMII_API_KEY,
-      to,
-      sender: env.TERMII_SENDER_ID,
-      type: 'plain',
-      message: body,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    logger.error('Termii rejected the message', { status: response.status, detail: detail.slice(0, 300) });
-    throw new Error('SMS delivery failed');
-  }
-}

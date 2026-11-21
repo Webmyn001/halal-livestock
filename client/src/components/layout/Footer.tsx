@@ -85,9 +85,9 @@ export function Footer() {
         <div>
           <h3 className="text-sm font-semibold text-white">Trust and safety</h3>
           <ul className="mt-4 space-y-2 text-sm leading-relaxed">
-            <li>Farmers verify identity before listing</li>
-            <li>Commission of 5 to 8 percent on completed orders</li>
-            <li>Live animal journeys capped at eight hours</li>
+            <li>Farmers verify identity and bank details before listing</li>
+            <li>Commission on completed orders only</li>
+            <li>Payout released after the buyer hands over the code</li>
           </ul>
         </div>
 

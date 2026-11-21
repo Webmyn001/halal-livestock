@@ -7,7 +7,7 @@ import { Order, type OrderDoc } from '../models/Order';
 import { Settlement, type SettlementDoc } from '../models/Settlement';
 import { User } from '../models/User';
 import { loadSettings, splitCommission } from '../models/PlatformSettings';
-import { sendEmail, sendSms } from './notificationService';
+import { sendEmail } from './notificationService';
 import { refundPayment } from './paymentService';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -229,7 +229,7 @@ export async function releaseSettlement(order: OrderDoc, actorId: string, refere
 }
 
 async function notifyFarmer(order: OrderDoc): Promise<void> {
-  const farmer = await User.findById(order.farmerId).select('fullName email phoneNumber').lean();
+  const farmer = await User.findById(order.farmerId).select('fullName email').lean();
   if (!farmer) return;
 
   const subject = `New paid order ${order.orderCode}`;
@@ -241,19 +241,14 @@ async function notifyFarmer(order: OrderDoc): Promise<void> {
 }
 
 async function deliverCode(order: OrderDoc, driverName: string, code: string): Promise<void> {
-  const buyer = await User.findById(order.buyerId).select('email phoneNumber fullName').lean();
+  const buyer = await User.findById(order.buyerId).select('email').lean();
   if (!buyer) return;
 
   const body = `Your Halal Livestocks order ${order.orderCode} is on the way with ${driverName}. Check the animals, then read this code to the driver: ${code}. The driver needs it before the payment is released.`;
-  const sms = `Order ${order.orderCode} is coming with ${driverName}. Hand the driver code ${code} after you check the animals.`;
 
   await tryNotify(async () => {
     await sendEmail({ to: buyer.email, subject: `Your handover code for ${order.orderCode}`, text: body, html: `<p>${body}</p>` });
   }, 'handover code email', order.orderCode);
-
-  await tryNotify(async () => {
-    await sendSms(buyer.phoneNumber, sms);
-  }, 'handover code SMS', order.orderCode);
 }
 
 async function tryNotify(task: () => Promise<void>, label: string, orderCode: string): Promise<void> {

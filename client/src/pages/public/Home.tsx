@@ -10,7 +10,7 @@ const CATEGORIES = [
     name: 'Sheep',
     image: '/images/sheep.jpg',
     alt: 'A flock of sheep being walked home past rural buildings',
-    body: 'Balami, Yankasa and dwarf breeds, sold live or dressed at a registered abattoir.',
+    body: 'Balami, Yankasa and dwarf breeds, sold live or halal processed.',
   },
   {
     name: 'Poultry',
@@ -29,7 +29,7 @@ const CATEGORIES = [
 const STEPS = [
   {
     title: 'Choose from verified farmers',
-    body: 'Every farmer passes an identity check and submits photos or video of the farm before the verified badge appears.',
+    body: 'Every farmer submits identity, farm and bank details, and an admin approves them before the verified badge appears.',
   },
   {
     title: 'Pay once, safely',
@@ -214,8 +214,8 @@ export function HomePage() {
             We only earn when an order completes
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-brand-100">
-            Registration, listings and messages cost nothing. The platform keeps a commission of 5 to 8 percent on
-            completed orders, and that rate is published in your dashboard.
+            Registration, listings and messages cost nothing. The platform keeps one commission on completed orders, and
+            the rate is published in your dashboard.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Link to={accountLink}>
@@ -224,10 +224,6 @@ export function HomePage() {
               </Button>
             </Link>
           </div>
-          <p className="mt-6 text-sm text-brand-200">
-            Marketplace browsing, farmer listings and account checks work today. Checkout and in app messaging open in
-            the next build.
-          </p>
         </div>
       </section>
     </div>

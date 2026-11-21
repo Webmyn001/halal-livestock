@@ -41,7 +41,7 @@ export const authService = {
     await request({ method: 'POST', url: '/auth/reset-password', data: { token, password } });
   },
 
-  async sendPhoneCode(): Promise<{ lastFour: string }> {
+  async sendPhoneCode(): Promise<{ accepted: boolean }> {
     return request({ method: 'POST', url: '/auth/phone/send-code' });
   },
 

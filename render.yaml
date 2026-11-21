@@ -1,0 +1,79 @@
+# Render Blueprint. In the Render dashboard choose New > Blueprint and point it at this repository;
+# Render reads this file and creates both services in one pass.
+#
+# Every key marked `sync: false` is a secret or a URL you fill in once in the dashboard, so nothing
+# sensitive lives in git. After the services exist, two more steps are needed and neither can be
+# declared here:
+#   1. Static site > Settings > Redirects & Rewrites > add  Source /*  Target /index.html  Rewrite 200
+#   2. Paystack > Webhooks > add https://<api url>/api/v1/payments/webhook and copy its generated
+#      secret into PAYSTACK_WEBHOOK_SECRET
+# Both are written up in README.md under "Deploying to Render".
+
+services:
+  - type: web
+    name: halal-livestocks-api
+    runtime: node
+    rootDir: server
+    plan: free
+    region: singapore
+    branch: main
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      # Outranks .node-version and is needed because Vite 8 and these deps want Node 22.
+      - key: NODE_VERSION
+        value: '22'
+      # Production turns on the guards: console mail, local image storage and mock payments all
+      # refuse to boot, so the provider keys below are not optional.
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      # The public URL of the static site below, with no trailing slash.
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: PUBLIC_APP_URL
+        sync: false
+      - key: PUBLIC_API_URL
+        sync: false
+      # Console is refused in production, and email is the only channel the app has: verification
+      # codes, handover codes and payout notices all go out through Brevo.
+      - key: MAIL_PROVIDER
+        value: brevo
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM_EMAIL
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: Halal Livestocks
+      - key: PAYMENT_PROVIDER
+        value: paystack
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_WEBHOOK_SECRET
+        sync: false
+      # A deployed dyno has no durable disk, so local uploads vanish on the next build.
+      - key: STORAGE_PROVIDER
+        value: cloudinary
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  - type: static
+    name: halal-livestocks-web
+    rootDir: client
+    plan: free
+    branch: main
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      # Baked into the bundle at build time, not read at runtime. Set it to the API service URL
+      # plus /api/v1, for example https://halal-livestocks-api.onrender.com/api/v1, then rebuild.
+      - key: VITE_API_BASE_URL
+        sync: false

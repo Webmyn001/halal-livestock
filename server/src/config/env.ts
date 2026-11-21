@@ -14,23 +14,21 @@ const envSchema = z.object({
   CLIENT_ORIGIN: z.string().default('http://localhost:5173'),
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
 
-  // Transactional messages. 'console' prints to the log and is only allowed outside production.
+  // Transactional messages, and the only channel the app has: verification codes, handover codes
+  // and payout notices all go out as email. 'console' prints to the log and is refused in production.
   MAIL_PROVIDER: z.enum(['console', 'brevo']).default('console'),
   BREVO_API_KEY: z.string().optional(),
   MAIL_FROM_EMAIL: z.string().optional(),
   MAIL_FROM_NAME: z.string().default('Halal Livestocks'),
-  SMS_PROVIDER: z.enum(['console', 'termii']).default('console'),
-  TERMII_API_KEY: z.string().optional(),
-  TERMII_SENDER_ID: z.string().default('HalalLive'),
 
   // Links inside emails point at the web app, which is a different origin to the API.
   PUBLIC_APP_URL: z.string().default('http://localhost:5173'),
 
   // Payments. 'mock' settles an order the moment its checkout link is opened and is refused in
-  // production. 'paystack' talks to the real API and needs the keys below.
+  // production. 'paystack' talks to the real API and needs the keys below. The browser never holds
+  // a Paystack key: it is sent the hosted checkout URL this API builds after verifying the amount.
   PAYMENT_PROVIDER: z.enum(['mock', 'paystack']).default('mock'),
   PAYSTACK_SECRET_KEY: z.string().optional(),
-  PAYSTACK_PUBLIC_KEY: z.string().optional(),
   // The value set on the Paystack dashboard for this webhook. The signature check is nothing
   // without it, so a production deployment cannot run without one.
   PAYSTACK_WEBHOOK_SECRET: z.string().optional(),
@@ -51,10 +49,6 @@ const envSchema = z.object({
   .refine(
     (value) => value.MAIL_PROVIDER !== 'brevo' || Boolean(value.BREVO_API_KEY && value.MAIL_FROM_EMAIL),
     { message: 'BREVO_API_KEY and MAIL_FROM_EMAIL are required when MAIL_PROVIDER=brevo', path: ['BREVO_API_KEY'] }
-  )
-  .refine(
-    (value) => value.SMS_PROVIDER !== 'termii' || Boolean(value.TERMII_API_KEY),
-    { message: 'TERMII_API_KEY is required when SMS_PROVIDER=termii', path: ['TERMII_API_KEY'] }
   )
   .refine(
     (value) => value.STORAGE_PROVIDER !== 'local' || value.NODE_ENV !== 'production',

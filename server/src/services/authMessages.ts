@@ -1,6 +1,6 @@
 import { env } from '../config/env';
 import type { UserDoc } from '../models/User';
-import { sendEmail, sendSms } from './notificationService';
+import { sendEmail } from './notificationService';
 
 const BRAND = '#0e6c49';
 const INK = '#14181f';
@@ -17,7 +17,13 @@ function firstName(user: UserDoc): string {
   return user.fullName.split(' ')[0] ?? 'there';
 }
 
-function layout(heading: string, paragraphs: string[], action?: { label: string; url: string }, footer?: string): string {
+function layout(
+  heading: string,
+  paragraphs: string[],
+  action?: { label: string; url: string },
+  footer?: string,
+  hero?: string
+): string {
   const button = action
     ? `<tr><td style="padding:26px 0 6px">
         <a href="${action.url}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;
@@ -27,6 +33,12 @@ function layout(heading: string, paragraphs: string[], action?: { label: string;
         If the button does not work, copy this address into your browser:<br>
         <span style="color:${INK};word-break:break-all">${action.url}</span>
       </td></tr>`
+    : '';
+
+  const heroBlock = hero
+    ? `<div style="margin:4px 0 20px;text-align:center;font-family:Inter,Segoe UI,Arial,sans-serif;font-size:30px;
+        font-weight:700;letter-spacing:8px;color:${INK};background:#f5f5f4;border:1px solid #e7e5e4;
+        border-radius:12px;padding:16px 10px">${hero}</div>`
     : '';
 
   return `<!doctype html>
@@ -49,6 +61,7 @@ function layout(heading: string, paragraphs: string[], action?: { label: string;
                 `<p style="margin:0 0 13px;font-family:Inter,Segoe UI,Arial,sans-serif;font-size:15px;line-height:1.65;color:#374151">${paragraph}</p>`
             )
             .join('')}
+          ${heroBlock}
           <table role="presentation" cellpadding="0" cellspacing="0" width="100%">${button}</table>
         </td></tr>
         <tr><td style="padding:16px 28px 22px;border-top:1px solid #e7e5e4;font-family:Inter,Segoe UI,Arial,sans-serif;
@@ -96,9 +109,21 @@ export async function sendPasswordReset(user: UserDoc, token: string): Promise<v
   });
 }
 
-export async function sendPhoneOtp(user: UserDoc, code: string): Promise<void> {
-  await sendSms(
-    user.phoneNumber,
-    `${code} is your Halal Livestocks code. It expires in 10 minutes. Do not share it with anyone.`
-  );
+export async function sendVerificationCode(user: UserDoc, code: string): Promise<void> {
+  await sendEmail({
+    to: user.email,
+    subject: 'Your confirmation code',
+    text: `Hello ${firstName(user)},\n\nYour Halal Livestocks confirmation code is ${code}. It expires in 10 minutes.\n\nDo not share it with anyone, including anybody claiming to work for us. If you did not ask for a code, ignore this message.`,
+    html: layout(
+      'Your confirmation code',
+      [
+        `Hello ${escapeHtml(firstName(user))},`,
+        'Use this code to finish the account check on Halal Livestocks.',
+        'It expires in 10 minutes, and it works once.',
+      ],
+      undefined,
+      'Nobody from Halal Livestocks will ever ask you for this code. If somebody does, they are trying to reach your account. If you did not request a code, you can ignore this message.',
+      code
+    ),
+  });
 }
