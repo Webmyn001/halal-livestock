@@ -99,3 +99,23 @@ export function requireSessionRole(...roles: UserRole[]): RequestHandler {
     next();
   };
 }
+
+/** The review team only reads submissions from an address we know belongs to the farmer. */
+export const requireEmailVerified: RequestHandler = async (req, _res, next) => {
+  if (!req.user) {
+    next(ApiError.unauthorized('Authentication required'));
+    return;
+  }
+
+  const account = await User.findById(req.user.userId).select('isEmailVerified').lean();
+  if (!account) {
+    next(ApiError.unauthorized('This account can no longer be used'));
+    return;
+  }
+  if (!account.isEmailVerified) {
+    next(ApiError.forbidden('Confirm your email address before sending your farm details for review.'));
+    return;
+  }
+
+  next();
+};

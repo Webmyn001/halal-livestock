@@ -60,9 +60,8 @@ async function main(): Promise<void> {
       phoneNumber: toE164(phoneNumber),
       passwordHash: await hashPassword(password),
       role,
-      // Staff skip the email and phone loop because there is no one else to approve them.
+      // Staff skip email confirmation because there is no one else to approve them.
       isEmailVerified: true,
-      isPhoneVerified: true,
     });
     console.log(`Created ${role} account ${email}`);
     if (!arg('password')) console.log(`One time password: ${password}`);

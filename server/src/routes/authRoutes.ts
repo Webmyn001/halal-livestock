@@ -1,20 +1,17 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import {
-  confirmPhone,
   forgotPassword,
   login,
   me,
   register,
   resendVerification,
-  requestPhoneCode,
   resetPassword,
   verifyEmail,
 } from '../controllers/authController';
 import { verifyToken } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import {
-  confirmPhoneSchema,
   forgotPasswordSchema,
   loginSchema,
   registerSchema,
@@ -58,14 +55,6 @@ const linkLimiter = rateLimit({
   message: rateMessage(15),
 });
 
-const codeLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000,
-  limit: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: rateMessage(10),
-});
-
 export const authRouter = Router();
 
 authRouter.post('/register', authLimiter, validateBody(registerSchema), register);
@@ -90,18 +79,4 @@ authRouter.post(
   linkLimiter,
   validateBody(resetPasswordSchema),
   resetPassword
-);
-
-authRouter.post(
-  '/phone/send-code',
-  codeLimiter,
-  verifyToken,
-  requestPhoneCode
-);
-authRouter.post(
-  '/phone/confirm',
-  authLimiter,
-  verifyToken,
-  validateBody(confirmPhoneSchema),
-  confirmPhone
 );

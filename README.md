@@ -69,15 +69,13 @@ All responses use one envelope: `{ success: true, data }` or
 | Method | Path | Auth | Purpose |
 | --- | --- | --- | --- |
 | GET | `/health` | — | Liveness check |
-| POST | `/api/v1/auth/register` | rate limited | Create a buyer or farmer account, returns JWT, sends the confirmation email |
+| POST | `/api/v1/auth/register` | rate limited | Create a buyer or farmer account with `password` and matching `confirmPassword`, returns JWT, sends the confirmation email |
 | POST | `/api/v1/auth/login` | rate limited | Sign in with email **or** phone + password |
 | GET | `/api/v1/auth/me` | Bearer | Current session user |
 | POST | `/api/v1/auth/verify-email` | rate limited | Confirm an address from the emailed link (single use) |
 | POST | `/api/v1/auth/resend-verification` | rate limited | Send a fresh link; the previous one stops working |
 | POST | `/api/v1/auth/forgot-password` | rate limited | Email a reset link. Always 202 |
 | POST | `/api/v1/auth/reset-password` | rate limited | Set a new password and end every older session |
-| POST | `/api/v1/auth/phone/send-code` | Bearer, rate limited | Email a six digit code to the address on the account |
-| POST | `/api/v1/auth/phone/confirm` | Bearer, rate limited | Verify the number with that code |
 | PUT | `/api/v1/users/profile` | Bearer | Update own name/phone only |
 | GET | `/api/v1/listings` | — | Public marketplace page: filters by `species`, `type`, `q`, `sort`, `page` |
 | GET | `/api/v1/listings/mine` | Farmer Bearer | Every listing on the caller's own account, including sold and taken down ones |
@@ -121,8 +119,8 @@ All responses use one envelope: `{ success: true, data }` or
 | GET | `/api/v1/conversations` | Buyer or farmer Bearer | Own threads, most recent message first, with unread counts |
 | GET | `/api/v1/conversations/:id` | Party on the thread | Read a thread and clear the caller's unread count |
 | POST | `/api/v1/conversations/:id/messages` | Party on the thread, rate limited | Send a message to the other side |
-| POST | `/api/v1/kyc` | Farmer Bearer | Submit farm, ID and bank details, with an optional document photo |
-| DELETE | `/api/v1/kyc/document` | Farmer Bearer | Withdraw the document photo |
+| POST | `/api/v1/kyc` | Farmer Bearer, email confirmed | Submit farm, ID and bank details, with an optional document photo |
+| DELETE | `/api/v1/kyc/document` | Farmer Bearer, email confirmed | Withdraw the document photo |
 
 ### Admin console
 
@@ -133,7 +131,7 @@ Everything below is `requireSessionRole('admin')`.
 | GET | `/api/v1/admin/counts` | Dashboard numbers: users, listings, orders, held money, open cases, KYC queue |
 | GET | `/api/v1/admin/users` | Search accounts by name, email or phone; filter by role, paged |
 | GET | `/api/v1/admin/complaints` | Support desk queue |
-| PATCH | `/api/v1/admin/complaints/:id` | Move a complaint to `under_review`, `resolved` or `closed` with a written reply |
+| PATCH | `/api/v1/admin/complaints/:id` | Move a complaint to `under_review`, `resolved` or `closed` with a written reply, and email that reply to the reporter |
 | GET | `/api/v1/admin/kyc` | Farmers waiting to be verified, with the full bank details for staff to check against the account name |
 | POST | `/api/v1/admin/kyc/:userId` | Approve or reject a KYC submission. Approval promotes the farm and frees its payout |
 | GET | `/api/v1/admin/orders` | Every order, filterable by status |
@@ -148,7 +146,8 @@ Notes on the decisions encoded here:
 
 - **Passwords** are bcrypt-hashed at cost 12 and never selected or serialized.
 - **Phone numbers** are stored in E.164 (`+234…`); local `0803…` input is normalized on the way in, for both
-  registration and login. Changing the number through the profile endpoint resets its verified flag.
+  registration and login. They are still collected at registration, but there is no OTP step: the review team checks
+  the number when it assesses the farm details. Registration asks for the password twice and the API rejects a mismatch.
 - **Login failures** return the same `Invalid credentials` message for unknown accounts and wrong passwords, so the
   API does not confirm which emails or numbers are registered. The recovery endpoints answer `202 accepted` whether or
   not the identifier exists, and the same for a suspended or already verified account.
@@ -161,19 +160,21 @@ Notes on the decisions encoded here:
   bumps `tokenVersion`, which invalidates the older stateless tokens.
 - **Complaints** may be filed by anyone, but a signed-in report always stores the account's own name, email and phone
   rather than whatever the form was filled with, so a report cannot be pointed at somebody else. Guests must supply a
-  name and an email address. An invalid bearer token is rejected instead of being treated as a guest.
+  name and an email address. An invalid bearer token is rejected instead of being treated as a guest. When an admin
+  saves a reply, it is emailed to `reporterEmail` whether the reporter has an account or not; a mail outage is logged
+  and does not undo the saved decision.
 
 ## Emails, codes and providers
 
-Verification links, reset links and confirmation codes share one design: the value is generated randomly, only its
-SHA-256 digest is stored in `verificationtokens`, each row carries an `expiresAt` with a MongoDB TTL index (so abandoned
-links clean themselves up), and a row is deleted the moment it is used. Issuing a new token for the same purpose deletes
-the older one, which is why "resend" invalidates the previous email. Lifetimes are 24 hours for email confirmation,
-30 minutes for a password reset and 10 minutes for a confirmation code; a code also dies after 5 wrong guesses.
+Verification and password-reset links share one design: the value is generated randomly, only its SHA-256 digest is
+stored in `verificationtokens`, each row carries an `expiresAt` with a MongoDB TTL index (so abandoned links clean
+themselves up), and a row is deleted the moment it is used. Issuing a new token for the same purpose deletes the older
+one, which is why "resend" invalidates the previous email. Lifetimes are 24 hours for email confirmation and 30 minutes
+for a password reset. There is no phone OTP any more: the review team confirms the number during KYC review.
 
 Email is the only outbound channel. There is no SMS provider, no sender ID and no per-message telecom cost:
-verification codes, handover codes and payout notices are all delivered by Brevo. Delivery goes through
-`server/src/services/notificationService.ts` and is chosen by environment variable:
+confirmation links, handover codes, payout notices and admin replies to support reports are all delivered by Brevo.
+Delivery goes through `server/src/services/notificationService.ts` and is chosen by environment variable:
 
 | Variable | Values | Notes |
 | --- | --- | --- |
@@ -182,8 +183,9 @@ verification codes, handover codes and payout notices are all delivered by Brevo
 | `PUBLIC_APP_URL` | default `http://localhost:5173` | Base URL used inside the emailed links. |
 
 Provider failures are logged and swallowed: a Brevo outage must not turn `forgot-password` into a way to test which
-addresses are registered. Emails are built as HTML in `server/src/services/authMessages.ts`, with the user's name
-escaped and a plain text part alongside.
+addresses are registered. Emails are built as HTML in `server/src/services/authMessages.ts` (account mail) and
+`server/src/services/supportMessages.ts` (admin replies), with names and reply text escaped and a plain text part
+alongside.
 
 To switch to real delivery: verify the sending domain in the Brevo dashboard, then set `MAIL_PROVIDER=brevo` plus
 `BREVO_API_KEY` and `MAIL_FROM_EMAIL`. That is the whole list.
@@ -308,10 +310,13 @@ closes and the app points the buyer at the chat or support instead.
 
 `POST /api/v1/kyc` collects farm name, address, town, state, an ID type (`nin`, `passport`, `drivers_license`, `vusv`),
 ID number, optional CAC number, and the bank name, account name and a 10 or 11 digit account number. The document photo
-is optional because farmers photograph IDs badly on phones; an admin can ask for it later.
+is optional because farmers photograph IDs badly on phones; an admin can ask for it later. The route is gated by
+`requireEmailVerified`: the link in the confirmation email has to be opened before the form can be opened or submitted,
+and the client shows the same gate. The phone number on the form is checked by the review team, not by an OTP.
 
-The admin queue shows the full account number so staff can match it against the account name. Approving one stamps the
-farm as verified and frees any payout held for that reason; rejecting it needs a written note the farmer can read. A
+The admin queue shows the full account number so staff can match it against the account name, alongside the email
+confirmation state. Approving one stamps the farm as verified and frees any payout held for that reason; rejecting it
+needs a written note the farmer can read. A
 payout cannot be marked paid out against an unapproved account at all — that is the guard that keeps a mis-keyed account
 number from recording a payment that went nowhere.
 
@@ -348,8 +353,8 @@ npm run seed:account -- --role admin --email you@example.com --name "Your Name" 
 npm run seed:account -- --role driver --email driver@example.com --name "Driver Name" --phone 08098765432 --activate
 ```
 
-Omit `--password` and a one time password is printed once, which should be changed after signing in. Staff skip the
-email and phone confirmation loop because there is no one left to approve them. `--activate` promotes an existing
+Omit `--password` and a one time password is printed once, which should be changed after signing in. Staff skip email
+confirmation because there is no one left to approve them. `--activate` promotes an existing
 account in place and ends its older sessions, so a farmer who joins the team does not need a second row.
 
 ## UI routes
@@ -370,8 +375,9 @@ visitors to `/login` and remembers where they were heading; the session is resto
 `/auth/me`, and a signed in account on the wrong route gets a plain "Not available for your account" notice rather than
 somebody else's console.
 
-The dashboards carry an "Account checks" card for the two confirmations: a resend button for the email link and a code
-entry for the phone number. The farmer dashboard also carries "My listings": every listing on the account with its
+The dashboards carry an "Account checks" card for email confirmation: a resend button for the link. Phone numbers are
+checked by the review team instead of by a code. `/farmer/verify-farm` hides the review form until the email is
+confirmed and offers a resend button. The farmer dashboard also carries "My listings": every listing on the account with its
 status, the photo strip (add while there is room, remove any but the last) and the buttons that mark a lot sold, put a
 taken down one back up or open the buyer's view of it. `/verify-email` and `/reset-password` are reachable while signed
 in or out, because a person arrives at them from an email. A successful password reset clears the stored token locally,

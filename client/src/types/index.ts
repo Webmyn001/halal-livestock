@@ -30,7 +30,6 @@ export interface User {
   fullName: string;
   role: UserRole;
   isEmailVerified: boolean;
-  isPhoneVerified: boolean;
   isKycApproved?: boolean;
   farmerProfile?: FarmerProfile | null;
   isActive: boolean;
@@ -48,6 +47,7 @@ export interface RegisterPayload {
   email: string;
   phoneNumber: string;
   password: string;
+  confirmPassword: string;
   role: Extract<UserRole, 'buyer' | 'farmer'>;
 }
 

@@ -39,7 +39,6 @@ export interface IUser {
   role: UserRole;
   fullName: string;
   isEmailVerified: boolean;
-  isPhoneVerified: boolean;
   isActive: boolean;
   /** Bumped whenever a session must die immediately, e.g. after a password reset. */
   tokenVersion: number;
@@ -93,7 +92,6 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>(
     role: { type: String, enum: USER_ROLES, required: true },
     fullName: { type: String, required: true, trim: true, maxlength: 120 },
     isEmailVerified: { type: Boolean, default: false },
-    isPhoneVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
     tokenVersion: { type: Number, default: 0 },
     farmerProfile: farmerProfileSchema,
@@ -146,7 +144,6 @@ export function toPublicUser(user: UserDoc) {
     fullName: user.fullName,
     role: user.role,
     isEmailVerified: user.isEmailVerified,
-    isPhoneVerified: user.isPhoneVerified,
     /** Payouts need more than a verified phone, so the two states are reported apart. */
     isKycApproved: user.farmerProfile?.status === 'approved',
     isActive: user.isActive,

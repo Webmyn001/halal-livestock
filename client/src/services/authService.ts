@@ -41,15 +41,6 @@ export const authService = {
     await request({ method: 'POST', url: '/auth/reset-password', data: { token, password } });
   },
 
-  async sendPhoneCode(): Promise<{ accepted: boolean }> {
-    return request({ method: 'POST', url: '/auth/phone/send-code' });
-  },
-
-  async confirmPhone(code: string): Promise<User> {
-    const data = await request<{ user: User }>({ method: 'POST', url: '/auth/phone/confirm', data: { code } });
-    return data.user;
-  },
-
   logout(): void {
     tokenStore.clear();
   },

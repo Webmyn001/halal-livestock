@@ -1,14 +1,13 @@
 import type { Request, Response } from 'express';
 import { User, hashPassword, toPublicUser, type UserDoc } from '../models/User';
-import { sendEmailVerification, sendPasswordReset, sendVerificationCode } from '../services/authMessages';
-import { consumeCode, consumeLink, issueToken } from '../services/verificationTokens';
+import { sendEmailVerification, sendPasswordReset } from '../services/authMessages';
+import { consumeLink, issueToken } from '../services/verificationTokens';
 import { ApiError } from '../utils/ApiError';
 import { sendSuccess } from '../utils/apiResponse';
 import { logger } from '../utils/logger';
 import { toE164 } from '../utils/phone';
 import { signAccessToken } from '../utils/token';
 import type {
-  ConfirmPhoneInput,
   ForgotPasswordInput,
   LoginInput,
   RegisterInput,
@@ -145,30 +144,4 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
   await user.save();
 
   sendSuccess(res, { passwordChanged: true });
-}
-
-export async function requestPhoneCode(req: Request, res: Response): Promise<void> {
-  const user = await User.findById(req.user!.userId);
-  if (!user) throw ApiError.notFound('Account no longer exists');
-
-  if (user.isPhoneVerified) throw ApiError.badRequest('This phone number is already confirmed');
-
-  const code = await issueToken(user.id, 'phone_otp');
-  await deliver(sendVerificationCode(user, code));
-
-  // No SMS channel, so the code lands in the inbox already tied to this account.
-  sendSuccess(res, { accepted: true }, 202);
-}
-
-export async function confirmPhone(req: Request, res: Response): Promise<void> {
-  const { code } = req.body as ConfirmPhoneInput;
-  await consumeCode(req.user!.userId, code);
-
-  const user = await User.findById(req.user!.userId);
-  if (!user) throw ApiError.notFound('Account no longer exists');
-
-  user.isPhoneVerified = true;
-  await user.save();
-
-  sendSuccess(res, { user: toPublicUser(user) });
 }

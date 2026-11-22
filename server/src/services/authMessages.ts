@@ -108,22 +108,3 @@ export async function sendPasswordReset(user: UserDoc, token: string): Promise<v
     ),
   });
 }
-
-export async function sendVerificationCode(user: UserDoc, code: string): Promise<void> {
-  await sendEmail({
-    to: user.email,
-    subject: 'Your confirmation code',
-    text: `Hello ${firstName(user)},\n\nYour Halal Livestocks confirmation code is ${code}. It expires in 10 minutes.\n\nDo not share it with anyone, including anybody claiming to work for us. If you did not ask for a code, ignore this message.`,
-    html: layout(
-      'Your confirmation code',
-      [
-        `Hello ${escapeHtml(firstName(user))},`,
-        'Use this code to finish the account check on Halal Livestocks.',
-        'It expires in 10 minutes, and it works once.',
-      ],
-      undefined,
-      'Nobody from Halal Livestocks will ever ask you for this code. If somebody does, they are trying to reach your account. If you did not request a code, you can ignore this message.',
-      code
-    ),
-  });
-}

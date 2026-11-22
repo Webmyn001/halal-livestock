@@ -562,8 +562,7 @@ function FarmsTab() {
                     {row.fullName} · {row.email} · {row.phoneNumber}
                   </p>
                   <p className="mt-1 text-xs text-ink-500">
-                    {row.isEmailVerified ? 'Email confirmed' : 'Email not confirmed'} ·{' '}
-                    {row.isPhoneVerified ? 'Phone confirmed' : 'Phone not confirmed'}
+                    {row.isEmailVerified ? 'Email confirmed' : 'Email not confirmed'}
                   </p>
                 </div>
                 <span className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold text-ink-700 ring-1 ring-inset ring-stone-200">

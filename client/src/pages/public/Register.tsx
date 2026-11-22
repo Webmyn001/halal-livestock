@@ -28,8 +28,9 @@ export function RegisterPage() {
   const navigate = useNavigate();
 
   const [role, setRole] = useState<AccountRole>('buyer');
-  const [values, setValues] = useState({ fullName: '', email: '', phoneNumber: '', password: '' });
+  const [values, setValues] = useState({ fullName: '', email: '', phoneNumber: '', password: '', confirmPassword: '' });
   const [error, setError] = useState<ApiRequestError | null>(null);
+  const [localError, setLocalError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   function update(field: keyof typeof values) {
@@ -40,6 +41,13 @@ export function RegisterPage() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    setLocalError('');
+
+    if (values.password !== values.confirmPassword) {
+      setLocalError('The two passwords do not match.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const user = await register({ ...values, role });
@@ -58,6 +66,7 @@ export function RegisterPage() {
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && error.fieldErrors.length === 0 ? <Alert tone="error">{error.message}</Alert> : null}
+        {localError ? <Alert tone="error">{localError}</Alert> : null}
 
         <fieldset>
           <legend className="mb-2 block text-sm font-medium text-ink-700">Account type</legend>
@@ -126,6 +135,16 @@ export function RegisterPage() {
           value={values.password}
           onChange={update('password')}
           error={error?.errorFor('password')}
+        />
+        <PasswordInput
+          label="Confirm password"
+          name="confirmPassword"
+          autoComplete="new-password"
+          required
+          hint="Type the same password again."
+          value={values.confirmPassword}
+          onChange={update('confirmPassword')}
+          error={error?.errorFor('confirmPassword')}
         />
 
         <Button type="submit" size="lg" className="w-full" isLoading={isSubmitting}>

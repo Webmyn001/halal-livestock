@@ -10,6 +10,7 @@ import { loadSettings, toPublicSettings } from '../models/PlatformSettings';
 import { Settlement, toPublicSettlement } from '../models/Settlement';
 import { User, toPublicUser, type KycStatus } from '../models/User';
 import { releaseSettlement, refundOrder } from '../services/orderFlow';
+import { sendSupportReply } from '../services/supportMessages';
 import type {
   ReviewComplaintInput,
   ReviewKycInput,
@@ -106,6 +107,14 @@ export async function reviewComplaint(req: Request, res: Response): Promise<void
   complaint.handledAt = new Date();
   await complaint.save();
 
+  // The reply goes straight to the address on the report, whether or not the person has an
+  // account. Delivery is fail-soft so Brevo being down cannot undo a saved decision.
+  try {
+    await sendSupportReply(complaint, input.response);
+  } catch (err) {
+    logger.error('Support reply email failed', err instanceof Error ? err.message : String(err));
+  }
+
   sendSuccess(res, { complaint: toPublicComplaint(complaint) });
 }
 
@@ -122,7 +131,6 @@ export async function listKycQueue(req: Request, res: Response): Promise<void> {
       email: user.email,
       phoneNumber: user.phoneNumber,
       isEmailVerified: user.isEmailVerified,
-      isPhoneVerified: user.isPhoneVerified,
       /** Staff read the full account number to match it against the name before approving. */
       profile: user.toObject().farmerProfile ?? null,
     })),

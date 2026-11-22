@@ -48,7 +48,6 @@ export function AccountPanel() {
           <Row label="Phone" value={user.phoneNumber} />
           <Row label="Role" value={ROLE_LABELS[user.role]} />
           <Row label="Email verified" value={user.isEmailVerified ? 'Yes' : 'Not yet'} />
-          <Row label="Phone verified" value={user.isPhoneVerified ? 'Yes' : 'Not yet'} />
           <Row label="Joined" value={formatDate(user.createdAt)} />
         </dl>
       </div>

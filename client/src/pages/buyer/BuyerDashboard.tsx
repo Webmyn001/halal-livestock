@@ -46,7 +46,6 @@ export function BuyerDashboardPage() {
         aside={[
           { label: 'Account', value: user.isActive ? 'Active' : 'Suspended' },
           { label: 'Email', value: user.isEmailVerified ? 'Confirmed' : 'Not confirmed' },
-          { label: 'Phone', value: user.isPhoneVerified ? 'Confirmed' : 'Not confirmed' },
         ]}
       />
 
@@ -60,17 +59,12 @@ export function BuyerDashboardPage() {
 
           <Checklist
             title="Get ready to order"
-            caption="Both confirmations finish today and cost nothing."
+            caption="Confirming your email takes under a minute and costs nothing."
             items={[
               {
                 label: 'Confirm your email address',
                 done: user.isEmailVerified,
                 note: 'Your collection code and every receipt go here.',
-              },
-              {
-                label: 'Confirm your phone number',
-                done: user.isPhoneVerified,
-                note: 'A driver calls this number when they reach you.',
               },
               {
                 label: 'Keep the collection code private',

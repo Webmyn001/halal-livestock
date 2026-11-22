@@ -1,6 +1,6 @@
 import { Schema, model, type HydratedDocument } from 'mongoose';
 
-export const VERIFICATION_PURPOSES = ['email_verification', 'password_reset', 'phone_otp'] as const;
+export const VERIFICATION_PURPOSES = ['email_verification', 'password_reset'] as const;
 export type VerificationPurpose = (typeof VERIFICATION_PURPOSES)[number];
 
 export interface IVerificationToken {

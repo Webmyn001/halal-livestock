@@ -7,7 +7,6 @@ export interface KycQueueEntry {
   email: string;
   phoneNumber: string;
   isEmailVerified: boolean;
-  isPhoneVerified: boolean;
   profile: (FarmerProfile & { documentPublicId?: string }) | null;
 }
 

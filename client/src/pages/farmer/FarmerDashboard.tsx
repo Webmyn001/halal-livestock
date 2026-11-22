@@ -110,14 +110,11 @@ export function FarmerDashboardPage() {
                 note: 'The decision from the review team is sent here.',
               },
               {
-                label: 'Confirm your phone number',
-                done: user.isPhoneVerified,
-                note: 'A driver calls this number when they collect.',
-              },
-              {
                 label: 'Send your ID and bank details',
                 done: kycStatus === 'submitted' || verified,
-                note: verified ? 'Approved. Buyers see the badge.' : 'One photo of the ID and a NUBAN account in your own name.',
+                note: verified
+                  ? 'Approved. Buyers see the badge.'
+                  : 'One photo of the ID and a NUBAN account in your own name. The review team checks the phone number you gave.',
               },
               {
                 label: 'Post your first stock',

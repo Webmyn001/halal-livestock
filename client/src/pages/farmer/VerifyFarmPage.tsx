@@ -5,6 +5,7 @@ import { Alert } from '../../components/common/Alert';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { ACCEPTED_TYPES } from '../../services/listingService';
+import { authService } from '../../services/authService';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiRequestError } from '../../services/apiClient';
 import { kycService } from '../../services/kycService';
@@ -37,12 +38,17 @@ export function VerifyFarmPage() {
   const [problem, setProblem] = useState('');
   const [done, setDone] = useState(false);
   const [isBusy, setIsBusy] = useState<'submit' | 'withdraw' | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailProblem, setEmailProblem] = useState('');
 
   if (!user) return null;
 
+  const accountEmail = user.email;
   const profile = user.farmerProfile ?? null;
   const status = profile?.status ?? 'none';
-  const canSubmit = status === 'none' || status === 'rejected';
+  // The review team only reads forms from a confirmed address. The API enforces this too.
+  const canSubmit = user.isEmailVerified && (status === 'none' || status === 'rejected');
 
   function chooseDocument(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -98,6 +104,19 @@ export function VerifyFarmPage() {
     }
   }
 
+  async function handleResendEmail() {
+    setEmailProblem('');
+    setEmailBusy(true);
+    try {
+      await authService.resendVerification(accountEmail);
+      setEmailSent(true);
+    } catch (err) {
+      setEmailProblem(err instanceof ApiRequestError ? err.message : 'Could not send the confirmation email.');
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
   async function handleWithdraw() {
     setError(null);
     setProblem('');
@@ -143,6 +162,22 @@ export function VerifyFarmPage() {
         {done ? (
           <Alert tone="success" title="Sent">
             Your details are with the review team.
+          </Alert>
+        ) : null}
+
+        {!user.isEmailVerified ? (
+          <Alert tone="info" title="Confirm your email first">
+            Open the link we emailed you before you send your farm details. The review team only reads forms from
+            confirmed addresses.
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <Button size="sm" variant="secondary" onClick={handleResendEmail} isLoading={emailBusy}>
+                {emailSent ? 'Send again' : 'Send the link again'}
+              </Button>
+              {emailSent ? (
+                <span className="text-xs text-ink-500">A new link is on its way. It works once and expires after 24 hours.</span>
+              ) : null}
+            </div>
+            {emailProblem ? <p className="mt-2 text-xs font-medium text-red-600">{emailProblem}</p> : null}
           </Alert>
         ) : null}
 
@@ -307,7 +342,7 @@ export function VerifyFarmPage() {
           </p>
           <dl className="mt-4 space-y-2.5 text-sm">
             <Row label="Email" value={user.isEmailVerified ? 'Confirmed' : 'Not confirmed'} />
-            <Row label="Phone" value={user.isPhoneVerified ? 'Confirmed' : 'Not confirmed'} />
+            <Row label="Phone" value={`${user.phoneNumber} · checked by the review team`} />
             <Row label="Bank account" value={profile?.accountNumber ?? 'Not added'} />
             <Row label="Document" value={profile?.documentUrl ? 'On file' : 'Not added'} />
           </dl>
