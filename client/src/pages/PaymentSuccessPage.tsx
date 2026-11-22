@@ -133,7 +133,7 @@ export function PaymentSuccessPage() {
         </div>
 
         <Alert tone="success" title="Your money is safe">
-          It is only released after you confirm you received the animals. If something goes wrong, you can open a case
+          It is only released after you confirm you received the livestock. If something goes wrong, you can open a case
           and the money stays with us while it is investigated.
         </Alert>
 
@@ -152,7 +152,7 @@ export function PaymentSuccessPage() {
               time, place and any delivery fee with the farmer.
             </li>
             <li>
-              <strong className="text-ink-900">3. Report a problem if you need to.</strong> If the animals do not arrive
+              <strong className="text-ink-900">3. Report a problem if you need to.</strong> If the livestock does not arrive
               or anything is wrong, open a case from the order page. Your money stays safe while the admin investigates.
             </li>
           </ol>

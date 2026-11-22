@@ -182,12 +182,12 @@ export function OrderPanel({ listing }: OrderPanelProps) {
           </span>
         </div>
         <p className="mt-1 text-xs leading-relaxed text-ink-500">
-          Delivery is arranged directly with the farmer. Your payment is held safely by Halal Livestocks until you confirm you received the animals.
+          Delivery is arranged directly with the farmer. Your payment is held safely by Halal Livestocks until you confirm you received the livestock.
         </p>
       </div>
 
       <Input
-        label="Who receives the animals"
+        label="Who receives the livestock"
         value={contactName}
         onChange={(event) => setContactName(event.target.value)}
         error={fieldErrors.contactName}
@@ -227,7 +227,7 @@ export function OrderPanel({ listing }: OrderPanelProps) {
         onChange={(event) => setNote(event.target.value)}
         error={fieldErrors.note}
         rows={3}
-        placeholder="Weights you need, time of day, how the animals should be crated."
+        placeholder="Weights needed, delivery time, how the stock should be packed or crated."
       />
 
       <Button type="submit" size="lg" className="w-full" disabled={isSubmitting || units < 1}>

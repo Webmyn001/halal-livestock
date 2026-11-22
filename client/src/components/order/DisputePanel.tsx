@@ -13,7 +13,7 @@ interface DisputePanelProps {
   orderId: string;
   orderCode: string;
   totalKobo: number;
-  /** A case can only be opened once the money is held or the animals have arrived. */
+  /** A case can only be opened once the money is held or the livestock has arrived. */
   canOpen: boolean;
   /** Whether the viewer is the buyer (affects wording). */
   isBuyer?: boolean;
@@ -187,7 +187,7 @@ export function DisputePanel({ orderId, orderCode, totalKobo, canOpen, isBuyer =
               rows={4}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              hint="At least a sentence. Weights, counts, and the time the animals arrived."
+              hint="At least a sentence. Weights, counts, and the time the livestock arrived."
             />
             <PhotoPicker files={files} onChange={setFiles} />
             <div className="flex flex-wrap gap-2">

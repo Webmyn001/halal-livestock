@@ -60,7 +60,7 @@ export function OrdersPage() {
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-500">
             {perspective === 'buyer'
               ? 'Every order you placed, the money on it, and what happens next.'
-              : 'Accept orders, prepare the animals, and see when the payout is on its way to your account.'}
+              : 'Accept orders, prepare your livestock, and track when the payout is on its way to your account.'}
           </p>
         </div>
         <Button variant="secondary" onClick={load}>

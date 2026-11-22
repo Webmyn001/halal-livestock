@@ -144,7 +144,7 @@ export function MyListings() {
         <div className="mt-4 rounded-card bg-white p-7 text-center ring-1 ring-stone-200 shadow-card">
           <p className="text-sm leading-relaxed text-ink-500">
             Nothing on sale yet. The first listing takes a title, a description, a price and one clear photo of the
-            animal.
+            livestock.
           </p>
           <Link to="/farmer/post-livestock" className="mt-5 inline-block">
             <Button>Post your first stock</Button>

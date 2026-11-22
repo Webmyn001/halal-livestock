@@ -119,7 +119,7 @@ export function FarmerDashboardPage() {
               {
                 label: 'Post your first stock',
                 done: false,
-                note: 'Live animals and halal processed products are listed apart.',
+                note: 'Live livestock and halal processed products are listed separately.',
               },
             ]}
           />
@@ -135,7 +135,7 @@ export function FarmerDashboardPage() {
               Registration, listings and messages cost nothing. The platform keeps a commission of{' '}
               {commission} on a completed order, so a sale of {formatNaira(10_000_000)} pays you{' '}
               {formatNaira(10_000_000 - Math.floor((10_000_000 * (platform?.commissionBps ?? 500)) / 10_000))} once the
-              buyer hands over the code. The rate applied to each order is written on the payout record.
+              buyer confirms receipt of the livestock. The rate applied to each order is written on the payout record.
             </p>
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               {[

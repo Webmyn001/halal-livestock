@@ -88,7 +88,7 @@ export function ChatPanel({ orderId, myRole }: ChatPanelProps) {
     <div className="space-y-4">
       {messages.length === 0 ? (
         <p className="rounded-xl bg-stone-50 px-4 py-3 text-xs leading-relaxed text-ink-500 ring-1 ring-inset ring-stone-200">
-          No message yet. Ask about weights, the collection time or how the animals are crated. Keep it here so an admin
+          No message yet. Ask about weights, collection time or delivery details with the farmer. Keep it here so an admin
           can read the whole conversation if a case is opened later.
         </p>
       ) : (

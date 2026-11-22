@@ -4,8 +4,8 @@ import appLogo from '../../utils/Halal Livestock Marketplace Logo.png';
 
 const POINTS = [
   'Farmers prove who they are before a listing gets the verified badge.',
-  'The buyer checks the animals and hands over a six digit code in person.',
-  'The payout waits until that code is accepted.',
+  'Delivery time, place and fee are agreed between buyer and farmer directly in the order chat.',
+  'The payout is only released after the buyer confirms they received the livestock.',
 ];
 
 export function AuthShell({ title, caption, children }: { title: string; caption: string; children: ReactNode }) {

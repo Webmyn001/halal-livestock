@@ -14,7 +14,7 @@ import { LISTING_TYPE_LABELS, SPECIES_LABELS, UNIT_LABELS } from '../../utils/li
 
 const PROTECTION = [
   'Pay on the platform, never by a direct transfer to a personal account.',
-  'The money stays with Halal Livestocks until you confirm the animals arrived as described.',
+  'The money stays with Halal Livestocks until you confirm the livestock arrived as described.',
   'Report a problem inside the dispute window and an admin looks at the photos before any payout.',
 ];
 
@@ -242,7 +242,7 @@ export function ListingDetailPage() {
             {listing.status === 'active' && listing.quantity === 0 ? (
               <div className="mt-4">
                 <Alert tone="info" title="Out of stock">
-                  This farmer has no animals left at this listing. Similar stock is in the marketplace.
+                  This farmer has no stock left at this listing. Similar listings are in the marketplace.
                 </Alert>
               </div>
             ) : null}
@@ -315,7 +315,7 @@ export function ListingDetailPage() {
               <p className="mt-2 text-sm text-ink-500">The account that posted this listing is no longer active.</p>
             )}
             <p className="mt-4 text-xs leading-relaxed text-ink-500">
-              Photos, prices and the animals described here belong to the farmer. Halal Livestocks checks every account
+              Photos, prices and the livestock described here belong to the farmer. Halal Livestocks checks every account
               and reviews reports, but the farm gives the final word on weight and health.
             </p>
           </div>

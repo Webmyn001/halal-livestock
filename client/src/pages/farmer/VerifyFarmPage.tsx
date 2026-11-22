@@ -220,7 +220,7 @@ export function VerifyFarmPage() {
               value={address}
               onChange={(event) => setAddress(event.target.value)}
               error={error?.errorFor('address')}
-              hint="Street, area, and something a driver can find."
+              hint="Street, area, and something easy to find."
             />
             <div className="grid gap-4 sm:grid-cols-2">
               <Input label="Town" value={town} onChange={(event) => setTown(event.target.value)} error={error?.errorFor('town')} />

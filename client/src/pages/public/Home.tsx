@@ -7,10 +7,10 @@ const HERO_CHIPS = ['No registration fee', 'No listing fee', 'No messaging fee']
 
 const CATEGORIES = [
   {
-    name: 'Sheep',
+    name: 'Sheep & Goats',
     image: '/images/sheep.jpg',
     alt: 'A flock of sheep being walked home past rural buildings',
-    body: 'Balami, Yankasa and dwarf breeds, sold live or halal processed.',
+    body: 'Balami, Yankasa, West African Dwarf and mixed breeds, sold live or halal processed.',
   },
   {
     name: 'Poultry',
@@ -37,7 +37,7 @@ const STEPS = [
   },
   {
     title: 'Inspect, then confirm receipt',
-    body: 'Once you check and count your animals, simply tap "Received" in the app. That confirmation is what releases the payout to the farmer.',
+    body: 'Once you check and count your stock, simply tap "Received" in the app. That confirmation releases the payout to the farmer.',
   },
 ];
 
@@ -48,9 +48,9 @@ const FARMER_POINTS = [
 ];
 
 const BUYER_POINTS = [
-  'See the farm, the town and the form of the animal on every listing, live or halal processed.',
+  'See the farm, the town and the form of the livestock on every listing, live or halal processed.',
   'Compare several farms in one town instead of relying on one middleman.',
-  'Raise a dispute with photos if animals arrive injured, short or never.',
+  'Raise a dispute with photos if livestock arrives injured, short or never.',
 ];
 
 export function HomePage() {
@@ -76,8 +76,8 @@ export function HomePage() {
             Buy livestock direct from farmers you can actually verify
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-relaxed text-brand-100">
-            Rabbits, poultry and sheep, sold live or halal processed. You deal with the farm that raised the animal, and
-            the money only moves when the delivery is accepted.
+            Sheep, goats, poultry and rabbit, sold live or halal processed. You deal with the farm that raised the
+            stock, and the money only moves when the delivery is confirmed.
           </p>
 
           <div className="mt-9 flex flex-wrap items-center gap-3">
@@ -113,10 +113,10 @@ export function HomePage() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="eyebrow">What we list</p>
-            <h2 className="mt-2 text-3xl font-bold text-ink-900">Three kinds of stock, clearly separated</h2>
+            <h2 className="mt-2 text-3xl font-bold text-ink-900">Four kinds of stock, clearly separated</h2>
           </div>
           <p className="max-w-sm text-sm text-ink-500">
-            Live animals and processed products never sit in the same category, so nobody has to guess what they are
+            Live livestock and processed products never sit in the same category, so nobody has to guess what they are
             buying.
           </p>
         </div>
@@ -150,7 +150,7 @@ export function HomePage() {
         <div className="page-shell">
           <p className="eyebrow">How an order runs</p>
           <h2 className="mt-2 max-w-2xl text-3xl font-bold text-ink-900">
-            The buyer keeps control until the animals are handed over
+            The buyer keeps control until the livestock is handed over
           </h2>
 
           <ol className="mt-12 grid gap-8 sm:grid-cols-3">

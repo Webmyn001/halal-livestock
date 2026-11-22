@@ -66,7 +66,7 @@ export function stepIndex(status: OrderStatus): number {
 }
 
 export const DISPUTE_REASON_LABELS: Record<DisputeReason, string> = {
-  animal_injured: 'An animal arrived hurt',
+  animal_injured: 'Livestock arrived hurt',
   wrong_quantity: 'The number was wrong',
   not_delivered: 'Nothing arrived',
   not_as_described: 'It was not what the listing showed',

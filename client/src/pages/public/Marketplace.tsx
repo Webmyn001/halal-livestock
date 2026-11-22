@@ -136,7 +136,7 @@ export function MarketplacePage() {
         <div className="page-shell py-11 sm:py-14">
           <p className="eyebrow">Marketplace</p>
           <h1 className="mt-3 text-balance text-3xl font-bold text-ink-900 sm:text-4xl">
-            Live animals and halal processed stock from verified farms
+            Live livestock and halal processed stock from verified farms
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-ink-500">
             Every farmer here confirms an email and a phone number. Look at the photos, compare prices and message the
@@ -178,9 +178,9 @@ export function MarketplacePage() {
       <div className="page-shell py-10 sm:py-12">
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div className="space-y-3">
-            <div role="group" aria-label="Animal" className="flex flex-wrap gap-2">
+            <div role="group" aria-label="Livestock type" className="flex flex-wrap gap-2">
               <Chip active={!filters.species} onClick={() => update({ species: undefined, page: 1 })}>
-                All animals
+                All livestock
               </Chip>
               {LISTING_SPECIES.map((species) => (
                 <Chip
@@ -259,8 +259,8 @@ export function MarketplacePage() {
             </h2>
             <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink-500">
               {hasFilters
-                ? 'Try a wider animal, a different form, or clear the search to see everything on the platform.'
-                : 'Be the first. Post the animals you have on the farm, add up to four photos and buyers in Oyo State will see them here.'}
+                ? 'Try a wider species, a different form, or clear the search to see everything on the platform.'
+                : 'Be the first. Post the livestock you have on the farm, add up to four photos and buyers in Oyo State will see them here.'}
             </p>
             <div className="mt-6 flex flex-wrap justify-center gap-3">
               {hasFilters ? (

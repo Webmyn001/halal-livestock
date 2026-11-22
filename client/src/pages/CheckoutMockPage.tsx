@@ -49,7 +49,7 @@ export function CheckoutMockPage() {
           <p className="mt-2 text-sm leading-relaxed text-ink-500">
             This platform is running with the test payment provider, so no card is charged and no money moves. Press the
             button and the order is treated as paid. The amount stays held by the platform until you confirm you received
-            the animals.
+            the livestock.
           </p>
 
           <dl className="mt-6 space-y-2.5 rounded-xl bg-stone-50 px-4 py-3.5 text-sm ring-1 ring-inset ring-stone-200">

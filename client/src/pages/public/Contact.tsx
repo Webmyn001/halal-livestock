@@ -17,7 +17,7 @@ const HEADQUARTERS_ADDRESS = 'No. 2, Anwo Street, Ajadi-Ologuneru, Ibadan, Oyo S
 
 const EXPECTATIONS = [
   'A person on the support team reads every report, not an auto reply.',
-  'We answer within one working day, and sooner when animals are at risk.',
+  'We answer within one working day, and sooner when livestock is at risk.',
   'If money or a delivery is involved, the order is held until it is settled.',
 ];
 
@@ -126,7 +126,7 @@ export function ContactPage() {
                 required
                 error={error?.errorFor('message')}
                 hint={`${message.trim().length} of 2000 characters. Two or three sentences are usually enough.`}
-                placeholder="Tell us the animal, the town, the date and what you expected versus what happened."
+                placeholder="Tell us the livestock type, the town, the date and what you expected versus what happened."
               />
 
               <Input

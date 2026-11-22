@@ -290,7 +290,7 @@ export function OrderDetailPage() {
               {/* Farmer: preparing hint */}
               {isFarmer && order.status === 'preparing' ? (
                 <p className="rounded-xl bg-brand-50 px-4 py-3 text-xs leading-relaxed text-brand-800 ring-1 ring-inset ring-brand-200">
-                  You accepted this order. Get the animals ready and use the chat to agree delivery with the buyer.
+                  You accepted this order. Get the livestock ready and use the chat to agree delivery with the buyer.
                 </p>
               ) : null}
 
@@ -422,7 +422,7 @@ export function OrderDetailPage() {
             <div className="rounded-card bg-stone-50 p-6 ring-1 ring-stone-200">
               <h2 className="font-display text-base font-semibold text-ink-900">Your money is safe</h2>
               <p className="mt-2 text-xs leading-relaxed text-ink-500">
-                When you pay, your money is held securely by Halal Livestocks — not sent to the farmer. It is only released after you confirm you received the animals.
+                When you pay, your money is held securely by Halal Livestocks — not sent to the farmer. It is only released after you confirm you received the livestock.
               </p>
             </div>
           ) : null}

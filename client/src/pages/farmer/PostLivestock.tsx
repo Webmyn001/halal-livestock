@@ -69,7 +69,7 @@ export function PostLivestockPage() {
     setFormProblem('');
 
     if (files.length === 0) {
-      setFormProblem('Add at least one photo of the animal so buyers can see what you are selling.');
+      setFormProblem('Add at least one photo of the livestock so buyers can see what you are selling.');
       return;
     }
 
@@ -112,7 +112,7 @@ export function PostLivestockPage() {
           <p className="eyebrow">Farmer tool</p>
           <h1 className="mt-3 text-balance text-3xl font-bold text-ink-900 sm:text-4xl">Post livestock for sale</h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-ink-500">
-            Photos are the part buyers look at first. Give the listing one to four clear pictures of the actual animals,
+            Photos are the part buyers look at first. Give the listing one to four clear pictures of the actual stock,
             then describe the weight band, feeding and what a buyer collects.
           </p>
 
@@ -147,7 +147,7 @@ export function PostLivestockPage() {
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 error={error?.errorFor('title')}
-                hint="Buyers see this first. Name the animal and what makes it worth their money."
+                hint="Buyers see this first. Name the livestock and what makes it worth their money."
                 placeholder="Ram for sale, healthy and vaccinated"
                 maxLength={90}
                 required
@@ -161,13 +161,13 @@ export function PostLivestockPage() {
                 maxLength={2000}
                 required
                 error={error?.errorFor('description')}
-                hint={`${description.trim().length} of 2000 characters. Say what a buyer collects, the weight band and how the animal was raised.`}
+                hint={`${description.trim().length} of 2000 characters. Say what a buyer collects, the weight band and how the stock was raised.`}
                 placeholder="Two year old ram, fed on pasture and kitchen waste. Collection from my farm in Ibadan or delivery inside Oyo State."
               />
 
               <fieldset>
-                <legend className="text-sm font-medium text-ink-700">Animal</legend>
-                <div role="radiogroup" aria-label="Animal" className="mt-3 flex flex-wrap gap-2">
+                <legend className="text-sm font-medium text-ink-700">Livestock type</legend>
+                <div role="radiogroup" aria-label="Livestock type" className="mt-3 flex flex-wrap gap-2">
                   {LISTING_SPECIES.map((value) => (
                     <Choice key={value} value={value} current={species} onSelect={() => setSpecies(value)}>
                       {SPECIES_LABELS[value]}
@@ -190,7 +190,7 @@ export function PostLivestockPage() {
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-ink-500">
                   {listingType === 'live'
-                    ? 'The animal leaves the farm on the hoof and the buyer arranges slaughter.'
+                    ? 'The livestock leaves the farm on the hoof and the buyer arranges slaughter.'
                     : 'Only mark this halal processed when the slaughter was done by an authorized person and you can say so.'}
                 </p>
               </fieldset>
@@ -281,7 +281,7 @@ export function PostLivestockPage() {
             <ul className="mt-4 space-y-3 text-sm leading-relaxed">
               {[
                 'Take the picture yourself, on your farm, in daylight.',
-                'Show the whole animal and one close shot of the head or body.',
+                'Show the whole livestock and one close shot of the head or body.',
                 'A clean pen and no other farm branding keeps the listing honest.',
                 'Up to four photos, three megabytes for the whole set, and the platform compresses them.',
               ].map((line) => (
@@ -297,7 +297,7 @@ export function PostLivestockPage() {
             <h2 className="font-display text-base font-semibold text-ink-900">What happens after you publish</h2>
             <p className="mt-3 text-sm leading-relaxed text-ink-500">
               The listing appears in the marketplace right away. Buyers reach the support desk about it, you agree a
-              collection or delivery time, and the payment stays with the platform until the buyer accepts the animals.
+              collection or delivery time, and the payment stays with the platform until the buyer confirms receipt.
             </p>
             <p className="mt-4 text-xs leading-relaxed text-ink-500">
               You can mark a lot sold or take a listing down from your dashboard at any time. A listing always keeps at

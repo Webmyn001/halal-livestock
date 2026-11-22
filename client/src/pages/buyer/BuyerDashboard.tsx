@@ -11,21 +11,21 @@ const TILES: ImageTile[] = [
   {
     to: '/marketplace',
     title: 'Browse the marketplace',
-    body: 'Sheep, poultry and rabbit from farms around Ibadan.',
+    body: 'Sheep, goats, poultry and rabbit from verified farms around Ibadan.',
     image: '/images/market.jpg',
     alt: 'Sheep tied to wooden pens at a livestock market',
   },
   {
     to: '/orders',
     title: 'My orders',
-    body: 'Payment state, the driver, and your collection code in one place.',
+    body: 'Track each order, chat with the farmer, and confirm receipt when your stock arrives.',
     image: '/images/poultry.jpg',
     alt: 'Broiler chickens inside a poultry house',
   },
   {
     to: '/how-it-works',
     title: 'How an order runs',
-    body: 'Pay, inspect, then release with your code.',
+    body: 'Pay safely, agree delivery in chat, then confirm receipt to release the farmer\'s payout.',
     image: '/images/rabbit.jpg',
     alt: 'A rabbit doe resting with her young',
   },
@@ -40,7 +40,7 @@ export function BuyerDashboardPage() {
       <DashboardHeader
         eyebrow="Buyer account"
         title={`Welcome back, ${user.fullName.split(' ')[0]}`}
-        caption="Order from any listing and the money stays with the platform until you hand your collection code to the driver."
+        caption="Order from any listing and the money stays with the platform until you confirm you have received the livestock."
         image="/images/buyer.jpg"
         alt="A trader selling frozen chicken at a market stall"
         aside={[
@@ -64,17 +64,17 @@ export function BuyerDashboardPage() {
               {
                 label: 'Confirm your email address',
                 done: user.isEmailVerified,
-                note: 'Your collection code and every receipt go here.',
+                note: 'Every order update and payment receipt goes here.',
               },
               {
-                label: 'Keep the collection code private',
+                label: 'Agree delivery in the order chat',
                 done: false,
-                note: 'Read it to the driver only after you have checked the animals.',
+                note: 'Open any order and use the built-in chat to fix the time, place and delivery fee with the farmer.',
               },
               {
-                label: 'Open a case in time if something is wrong',
+                label: 'Confirm receipt when your livestock arrives',
                 done: false,
-                note: 'The window is counted from the handover and set by the review team.',
+                note: 'Tap "Mark as received" on the order page to release the farmer\'s payout. If something is wrong, report it instead.',
               },
             ]}
           />

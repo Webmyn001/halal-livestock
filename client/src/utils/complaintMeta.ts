@@ -3,7 +3,7 @@ import type { ComplaintCategory, ComplaintStatus } from '../types';
 export const CATEGORY_LABELS: Record<ComplaintCategory, string> = {
   listing_quality: 'A listing did not match what arrived',
   payment: 'Payment or refund',
-  delivery: 'Delivery or the animals in transit',
+  delivery: 'Delivery or livestock in transit',
   account: 'My account or sign in',
   farmer_conduct: 'How a farmer behaved',
   other: 'Something else',
