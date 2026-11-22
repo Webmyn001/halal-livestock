@@ -31,6 +31,8 @@ export function ChatPanel({ orderId, myRole }: ChatPanelProps) {
         if (cancelled) return;
         setThreadId(data.conversation.id);
         setMessages(data.messages);
+        // Reading the thread clears this side's unread count on the server, so refresh the badge.
+        window.dispatchEvent(new Event('halal:messages-changed'));
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -58,6 +60,7 @@ export function ChatPanel({ orderId, myRole }: ChatPanelProps) {
       const message = await chatService.send(threadId, text);
       setMessages((current) => [...(current ?? []), message]);
       setBody('');
+      window.dispatchEvent(new Event('halal:messages-changed'));
     } catch (err) {
       setProblem(err instanceof ApiRequestError ? err.message : 'That message did not send.');
     } finally {

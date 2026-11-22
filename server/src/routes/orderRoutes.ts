@@ -5,6 +5,7 @@ import { validateBody } from '../middleware/validate';
 import {
   acceptOrderByFarmer,
   cancelOrderByBuyer,
+  confirmReceiptByBuyer,
   createOrder,
   getOrder,
   getOrderThread,
@@ -33,4 +34,5 @@ orderRouter.post('/', requireSessionRole('buyer'), orderLimiter, validateBody(cr
 orderRouter.post('/:id/pay', requireSessionRole('buyer'), startPayment);
 orderRouter.post('/:id/payment-check', requireSessionRole('buyer'), refreshPayment);
 orderRouter.post('/:id/accept', requireSessionRole('farmer'), acceptOrderByFarmer);
+orderRouter.post('/:id/confirm', requireSessionRole('buyer'), confirmReceiptByBuyer);
 orderRouter.post('/:id/cancel', requireSessionRole('buyer', 'admin'), validateBody(cancelOrderSchema), cancelOrderByBuyer);

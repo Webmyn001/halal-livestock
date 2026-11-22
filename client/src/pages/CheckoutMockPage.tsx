@@ -16,6 +16,7 @@ export function CheckoutMockPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const reference = params.get('reference') ?? '';
+  const orderId = params.get('orderId') ?? '';
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiRequestError | null>(null);
@@ -24,8 +25,12 @@ export function CheckoutMockPage() {
     setBusy(true);
     setError(null);
     try {
-      const order = await orderService.completeMockPayment(reference);
-      navigate(`/orders/${order.id}`, { replace: true });
+      const completed = await orderService.completeMockPayment(reference);
+      const targetOrder = orderId || completed.id;
+      navigate(
+        `/orders/return?reference=${encodeURIComponent(reference)}&order=${encodeURIComponent(targetOrder)}&mock=1`,
+        { replace: true }
+      );
     } catch (err) {
       setError(err instanceof ApiRequestError ? err : new ApiRequestError('That payment did not register', 'UNKNOWN'));
       setBusy(false);
@@ -43,8 +48,8 @@ export function CheckoutMockPage() {
           <h1 className="mt-4 text-balance text-2xl font-bold text-ink-900">Confirm the payment</h1>
           <p className="mt-2 text-sm leading-relaxed text-ink-500">
             This platform is running with the test payment provider, so no card is charged and no money moves. Press the
-            button and the order is treated as paid, which holds the amount for the farm until you release it with your
-            collection code.
+            button and the order is treated as paid. The amount stays held by the platform until you confirm you received
+            the animals.
           </p>
 
           <dl className="mt-6 space-y-2.5 rounded-xl bg-stone-50 px-4 py-3.5 text-sm ring-1 ring-inset ring-stone-200">

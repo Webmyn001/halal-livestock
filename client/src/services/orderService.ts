@@ -54,6 +54,12 @@ export const orderService = {
     return data.order;
   },
 
+  /** Buyer directly confirms receipt of the animals (no driver/code required). */
+  async confirm(id: string): Promise<Order> {
+    const data = await request<{ order: Order }>({ method: 'POST', url: `/orders/${id}/confirm` });
+    return data.order;
+  },
+
   /** The test provider only: it marks the in memory checkout as paid and funds the order. */
   async completeMockPayment(reference: string): Promise<{ id: string; orderCode: string; status: string }> {
     const data = await request<{ order: { id: string; orderCode: string; status: string } }>({

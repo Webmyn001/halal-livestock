@@ -5,9 +5,11 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { Spinner } from './components/common/Button';
 import { useAuth } from './hooks/useAuth';
 import { NotFoundPage } from './pages/NotFound';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { OrderDetailPage } from './pages/OrderDetailPage';
 import { OrdersPage } from './pages/OrdersPage';
 import { CheckoutMockPage } from './pages/CheckoutMockPage';
+import { PaymentSuccessPage } from './pages/PaymentSuccessPage';
 import { BuyerDashboardPage } from './pages/buyer/BuyerDashboard';
 import { FarmerDashboardPage } from './pages/farmer/FarmerDashboard';
 import { PostLivestockPage } from './pages/farmer/PostLivestock';
@@ -78,6 +80,22 @@ export default function App() {
           />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/checkout/mock" element={<CheckoutMockPage />} />
+          <Route
+            path="/orders/return"
+            element={
+              <ProtectedRoute roles={['buyer']}>
+                <PaymentSuccessPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <ProtectedRoute roles={['buyer', 'farmer']}>
+                <NotificationsPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/orders"
             element={

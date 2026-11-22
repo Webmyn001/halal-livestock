@@ -43,14 +43,31 @@ export async function reserveStock(listingId: Types.ObjectId, quantity: number):
     const listing = await Listing.findById(listingId).select('quantity status').lean();
     throw ApiError.conflict(
       !listing || listing.status !== 'active'
-        ? 'That listing is no longer on sale'
+        ? listing?.status === 'sold'
+          ? 'That livestock has already been sold'
+          : listing?.status === 'under_process'
+            ? 'That livestock is currently under process of being sold to another buyer'
+            : 'That listing is no longer on sale'
         : `Only ${listing.quantity} left on that listing. Reduce the quantity and try again.`
     );
+  }
+
+  // When all available stock is reserved, mark the listing as under process
+  const remaining = await Listing.findById(listingId).select('quantity').lean();
+  if (remaining && remaining.quantity <= 0) {
+    await Listing.updateOne({ _id: listingId }, { $set: { status: 'under_process' } });
   }
 }
 
 export async function releaseStock(listingId: Types.ObjectId, quantity: number): Promise<void> {
-  await Listing.updateOne({ _id: listingId }, { $inc: { quantity: quantity } });
+  await Listing.updateOne(
+    { _id: listingId },
+    {
+      $inc: { quantity: quantity },
+      $set: { status: 'active' },
+      $unset: { soldAt: 1 },
+    }
+  );
 }
 
 export async function markFunded(order: OrderDoc, reference: string, amountKobo: number, provider: string): Promise<OrderDoc> {
@@ -126,6 +143,36 @@ export async function confirmHandover(order: OrderDoc, code: string): Promise<Or
   order.status = 'confirmed';
   order.confirmedAt = new Date();
   await order.save();
+
+  // Mark listing as sold if quantity is 0 or it was under process
+  const listing = await Listing.findById(order.listingId).select('quantity status').lean();
+  if (listing && listing.quantity <= 0) {
+    await Listing.updateOne({ _id: listing._id }, { $set: { status: 'sold', soldAt: new Date() } });
+  }
+
+  await buildSettlement(order);
+  return order;
+}
+
+/**
+ * Buyer directly confirms receipt of the animals (no driver/code required).
+ * Used in the simplified delivery flow where buyer and farmer agree delivery themselves.
+ */
+export async function confirmByBuyer(order: OrderDoc): Promise<OrderDoc> {
+  const allowed: string[] = ['out_for_delivery', 'preparing'];
+  if (!allowed.includes(order.status)) {
+    throw ApiError.conflict('You can only confirm receipt after the order has been accepted by the farmer.');
+  }
+
+  order.status = 'confirmed';
+  order.confirmedAt = new Date();
+  await order.save();
+
+  // Mark listing as sold if quantity is 0 or it was under process
+  const listing = await Listing.findById(order.listingId).select('quantity status').lean();
+  if (listing && listing.quantity <= 0) {
+    await Listing.updateOne({ _id: listing._id }, { $set: { status: 'sold', soldAt: new Date() } });
+  }
 
   await buildSettlement(order);
   return order;
@@ -223,7 +270,7 @@ export async function releaseSettlement(order: OrderDoc, actorId: string, refere
 
   // Sold out is a fact about the listing, not about this order, so it is set from the stock count.
   const listing = await Listing.findById(order.listingId).select('quantity status').lean();
-  if (listing && listing.quantity <= 0 && listing.status === 'active') {
+  if (listing && listing.quantity <= 0 && listing.status !== 'removed') {
     await Listing.updateOne({ _id: listing._id }, { $set: { status: 'sold', soldAt: new Date() } });
   }
 

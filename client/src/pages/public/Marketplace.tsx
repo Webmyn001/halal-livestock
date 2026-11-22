@@ -239,7 +239,7 @@ export function MarketplacePage() {
           <p className="text-sm text-ink-500" aria-live="polite">
             {isLoading
               ? 'Loading listings'
-              : `${result?.total ?? 0} ${result?.total === 1 ? 'listing' : 'listings'} available`}
+              : `${result?.total ?? 0} ${result?.total === 1 ? 'listing' : 'listings'}`}
           </p>
           <Link to={sellTo}>
             <Button variant="secondary" size="sm">

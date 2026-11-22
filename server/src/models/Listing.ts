@@ -11,7 +11,7 @@ export type ListingType = (typeof LISTING_TYPES)[number];
 export const LISTING_UNITS = ['bird', 'head', 'crate', 'kg'] as const;
 export type ListingUnit = (typeof LISTING_UNITS)[number];
 
-export const LISTING_STATUSES = ['active', 'sold', 'removed'] as const;
+export const LISTING_STATUSES = ['active', 'under_process', 'sold', 'removed'] as const;
 export type ListingStatus = (typeof LISTING_STATUSES)[number];
 
 export interface IListingImage {

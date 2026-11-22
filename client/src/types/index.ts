@@ -103,7 +103,7 @@ export type ListingType = (typeof LISTING_TYPES)[number];
 export const LISTING_UNITS = ['bird', 'head', 'crate', 'kg'] as const;
 export type ListingUnit = (typeof LISTING_UNITS)[number];
 
-export type ListingStatus = 'active' | 'sold' | 'removed';
+export type ListingStatus = 'active' | 'under_process' | 'sold' | 'removed';
 
 export interface ListingImage {
   url: string;

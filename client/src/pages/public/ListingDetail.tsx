@@ -113,6 +113,67 @@ export function ListingDetailPage() {
         All listings
       </Link>
 
+      {/* Bold status banner — shown before anything else for non-active listings */}
+      {listing.status !== 'active' ? (
+        <div
+          className={`mt-5 rounded-2xl px-6 py-5 ring-2 shadow-sm ${
+            listing.status === 'sold'
+              ? 'bg-red-50 ring-red-400'
+              : listing.status === 'under_process'
+                ? 'bg-amber-50 ring-amber-400'
+                : 'bg-stone-100 ring-stone-300'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className={`inline-block size-3 rounded-full ${
+                listing.status === 'sold'
+                  ? 'bg-red-600'
+                  : listing.status === 'under_process'
+                    ? 'bg-amber-500 animate-pulse'
+                    : 'bg-stone-600'
+              }`}
+            />
+            <p
+              className={`text-xl font-black uppercase tracking-wider ${
+                listing.status === 'sold'
+                  ? 'text-red-700'
+                  : listing.status === 'under_process'
+                    ? 'text-amber-800'
+                    : 'text-stone-700'
+              }`}
+            >
+              {listing.status === 'sold'
+                ? '🔴 THIS LOT IS SOLD'
+                : listing.status === 'under_process'
+                  ? '⏳ ORDER UNDER PROCESS'
+                  : '🚫 THIS LISTING IS UNAVAILABLE'}
+            </p>
+          </div>
+          <p
+            className={`mt-2 text-sm font-medium leading-relaxed ${
+              listing.status === 'sold'
+                ? 'text-red-800'
+                : listing.status === 'under_process'
+                  ? 'text-amber-900'
+                  : 'text-stone-700'
+            }`}
+          >
+            {listing.status === 'sold'
+              ? 'Another buyer has already purchased this lot. It is no longer available for order.'
+              : listing.status === 'under_process'
+                ? 'An order is currently in progress for this livestock item. It cannot be purchased by another buyer.'
+                : 'This listing has been removed. The farmer keeps it here for their records.'}
+          </p>
+          <Link
+            to="/marketplace"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2 text-xs font-semibold text-white hover:bg-brand-800 transition"
+          >
+            Browse other available listings →
+          </Link>
+        </div>
+      ) : null}
+
       <div className="mt-6 grid gap-9 lg:grid-cols-[1.4fr_1fr] lg:items-start">
         <div className="min-w-0">
           <div className="overflow-hidden rounded-card bg-stone-100 ring-1 ring-stone-200">
@@ -177,10 +238,11 @@ export function ListingDetailPage() {
             </p>
             <h1 className="mt-2 text-balance text-2xl font-bold text-ink-900">{listing.title}</h1>
 
-            {listing.status !== 'active' ? (
+            {/* Status alert for sidebar — only for active so the full page banner is enough for sold/removed */}
+            {listing.status === 'active' && listing.quantity === 0 ? (
               <div className="mt-4">
-                <Alert tone="info" title={listing.status === 'sold' ? 'This lot is sold' : 'This listing is taken down'}>
-                  The farmer keeps it visible for their own records. Similar stock sits in the marketplace.
+                <Alert tone="info" title="Out of stock">
+                  This farmer has no animals left at this listing. Similar stock is in the marketplace.
                 </Alert>
               </div>
             ) : null}

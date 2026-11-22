@@ -200,6 +200,15 @@ export function MyListings() {
                             Take down
                           </Button>
                         </>
+                      ) : listing.status === 'under_process' ? (
+                        <>
+                          <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">
+                            ⏳ Order in progress with buyer
+                          </span>
+                          <Button size="sm" variant="secondary" disabled={isBusy} onClick={() => setStatus(listing, 'sold')}>
+                            Mark sold
+                          </Button>
+                        </>
                       ) : (
                         <Button size="sm" variant="secondary" disabled={isBusy} onClick={() => setStatus(listing, 'active')}>
                           {listing.status === 'sold' ? 'List again' : 'Put it back up'}

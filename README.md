@@ -6,9 +6,10 @@ processed products, and payment protection on every order.
 
 **Current status: the full trading loop is implemented** — project scaffolding, environment configuration, centralized
 error handling, accounts with role-based auth, the login/register/session UI, image-led dashboards, a support desk,
-livestock listings with photos, orders with a checkout held by the platform, delivery guarded by a six digit handover
-code, a settlement ledger with commission, disputes with photo evidence, in app chat between buyer and farmer, farmer
-KYC with an approval queue, and an admin console over all of it including `PlatformSettings`.
+livestock listings with photos, orders with a checkout held by the platform, buyer-confirmed delivery, a settlement
+ledger with commission, disputes with photo evidence, in app chat between buyer and farmer, in-app message and
+transaction alerts in the navbar, a guided payment-success page, farmer KYC with an approval queue, and an admin console
+over all of it including `PlatformSettings`.
 
 Two providers are still switched off by default and need keys before a launch: image storage (`cloudinary`) and money
 (`paystack`). Both are refused when `NODE_ENV=production`, so the app cannot go live on the local/mock paths by
@@ -99,7 +100,8 @@ All responses use one envelope: `{ success: true, data }` or
 | POST | `/api/v1/orders/:id/pay` | Buyer Bearer | Ask the provider for a checkout URL for this order |
 | POST | `/api/v1/orders/:id/payment-check` | Buyer Bearer | Re-read the reference and mark the order funded when the money is in |
 | POST | `/api/v1/orders/:id/accept` | Farmer Bearer | Farmer accepts the order and moves it to `preparing` |
-| POST | `/api/v1/orders/:id/cancel` | Buyer or admin Bearer | Cancel before handover and put the quantity back on the listing |
+| POST | `/api/v1/orders/:id/confirm` | Buyer Bearer | Buyer confirms receipt directly; moves the order to `confirmed` and queues the payout |
+| POST | `/api/v1/orders/:id/cancel` | Buyer or admin Bearer | Cancel before confirmation and put the quantity back on the listing |
 | POST | `/api/v1/payments/webhook` | Paystack signature | Provider callback. Sits ahead of auth because the HMAC is checked over the raw body |
 | POST | `/api/v1/payments/mock/complete` | Buyer Bearer | Settles a `mock` checkout so the loop is testable without a card |
 
@@ -109,8 +111,8 @@ All responses use one envelope: `{ success: true, data }` or
 | --- | --- | --- | --- |
 | GET | `/api/v1/deliveries/mine` | Driver Bearer | The runs assigned to the signed in driver |
 | GET | `/api/v1/deliveries/drivers` | Admin Bearer | Active driver accounts, for the dispatch picker |
-| POST | `/api/v1/deliveries/:id/dispatch` | Admin Bearer | Assign a driver, issue the six digit handover code, notify the buyer |
-| POST | `/api/v1/deliveries/:id/handover` | Driver Bearer | Driver enters the code the buyer read out. Five wrong tries locks it |
+| POST | `/api/v1/deliveries/:id/dispatch` | Admin Bearer | Legacy driver assignment with a six digit handover code; kept for existing assignments, not used by the buyer flow |
+| POST | `/api/v1/deliveries/:id/handover` | Driver Bearer | Legacy code entry for a dispatched run. Five wrong tries locks it |
 | POST | `/api/v1/disputes` | Buyer or farmer, rate limited | Open a case with 1 to 4 photos, 3 MB for the set |
 | GET | `/api/v1/disputes` | Buyer or farmer Bearer | Own cases, newest first |
 | GET | `/api/v1/disputes/:id` | Party on the case | One case with its evidence |
@@ -173,7 +175,7 @@ one, which is why "resend" invalidates the previous email. Lifetimes are 24 hour
 for a password reset. There is no phone OTP any more: the review team confirms the number during KYC review.
 
 Email is the only outbound channel. There is no SMS provider, no sender ID and no per-message telecom cost:
-confirmation links, handover codes, payout notices and admin replies to support reports are all delivered by Brevo.
+confirmation links, legacy handover codes, payout notices and admin replies to support reports are all delivered by Brevo.
 Delivery goes through `server/src/services/notificationService.ts` and is chosen by environment variable:
 
 | Variable | Values | Notes |
@@ -240,7 +242,7 @@ the marketplace; a `removed` one stays readable for its owner.
 
 ```
 awaiting_payment → funded → preparing → out_for_delivery → confirmed → completed
-        ↘ cancelled  (before handover)   ↘ refunded  (dispute ruled for the buyer)
+        ↘ cancelled  (before confirmation)   ↘ refunded  (dispute ruled for the buyer)
 ```
 
 Money has its own field (`paymentState`: `unpaid`, `held`, `refunded`) so a hold does not rewrite delivery history, and
@@ -253,14 +255,14 @@ payouts live in a separate ledger (`Settlement`: `pending`, `held`, `released`).
   moment it was written, so a farmer editing the listing afterwards cannot change what the buyer agreed to.
 - **Fund checks the amount.** `markFunded` refuses a payment that does not equal `totalKobo` and treats the second
   report of the same payment as a no-op, because the webhook and the browser can both arrive.
-- **The handover code is the only key.** Dispatch generates six digits, stores them with `select: false`, emails them
-  to the buyer, and never returns them to the driver. The buyer reads them out at the roadside; the driver
-  types them into `/deliveries/:id/handover`. Five wrong tries locks the code until support dispatches a new one. The
-  payload only carries the code to the buyer or an admin while the order is `out_for_delivery`, and a replay is stopped
-  by the state machine itself: handover requires `out_for_delivery`, which a confirmed order has already left.
-- **Confirming opens the payout.** Handover moves the order to `confirmed` and writes a `Settlement` row in the same
-  call, using `splitCommission(totalKobo, commissionBps)`. The floor goes to the farmer, so a payout can never add up
-  to more than the buyer actually paid. 500 bps on ₦15,000 is ₦750 to the platform and ₦14,250 to the farm.
+- **The buyer confirms receipt.** Buyer and farmer agree the handover in the order chat. Once the order is accepted
+  (`preparing`) or out for delivery, the buyer clicks **I have received the animals** on the order page. No driver code
+  is needed in the default flow; the old dispatch/handover endpoints remain for existing driver assignments, and a
+  replay is stopped by the state machine because `confirmByBuyer` only accepts `preparing` or `out_for_delivery`.
+- **Confirming opens the payout.** Buyer confirmation moves the order to `confirmed`, stamps `confirmedAt`, and writes
+  a `Settlement` row in the same call, using `splitCommission(totalKobo, commissionBps)`. The floor goes to the farmer,
+  so a payout can never add up to more than the buyer actually paid. 500 bps on ₦15,000 is ₦750 to the platform and
+  ₦14,250 to the farm.
 
 ## Payments: mock and Paystack
 
@@ -281,6 +283,11 @@ HMAC-SHA512 and `rawBody` is captured for that check. Current callbacks carry `P
 `whsec_` secret from the dashboard and a five-minute timestamp tolerance. `x-paystack-signature` signed with
 `PAYSTACK_SECRET_KEY` is still accepted as a fallback. A reference is only trusted after `verifyTransaction` returns it,
 so a browser claiming to have paid cannot fund an order on its own.
+
+The Paystack callback URL carries both `reference` and the internal `order` id:
+`/orders/return?reference=…&order=…`. The mock checkout uses the same page. `/orders/return` re-checks the order a few
+times while the webhook catches up, then shows a clear **Payment successful** message, explains that the money is held
+safely, and links to order tracking and to `?report=1` for opening a case. It never asks the buyer to pay twice.
 
 Paystack is a licensed PSSP and merchant acquirer, **not** an escrow trustee, and it exposes no end-user escrow API. The
 design therefore collects payment to the platform merchant account and releases farmer payouts from an internal
@@ -334,7 +341,7 @@ console. A fresh cluster gets the document on first use.
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `commissionBps` | 500 (5%) | Share of the order value the platform keeps, in basis points. Rounded in the farmer's favour |
-| `disputeWindowDays` | 7 | Days after handover in which a case can still be opened |
+| `disputeWindowDays` | 7 | Days after the buyer confirms receipt in which a case can still be opened |
 | `paymentsOpen` | `true` | Turning it off stops new checkouts while leaving existing orders readable |
 | `supportEmail` / `supportPhone` | placeholder | What the buyer and farmer screens tell people to contact |
 | `maintenanceNote` | empty | A short note the admin can leave. Only the console reads it back today |
@@ -365,11 +372,17 @@ Public: `/` landing page, `/marketplace` (filters, search, sort and paging over 
 provider's payment page while `PAYMENT_PROVIDER=mock`).
 
 Signed in, any role: `/orders` (the list, whichever side of the deal the caller is on) and `/orders/:id` (progress
-strip, money on the order, the dispatch card for an admin, the code box for a driver, the chat and dispute panels for
-buyer and farmer).
+strip, money on the order, the chat and dispute panels for buyer and farmer, and the buyer's **I have received the
+animals** action). Buyers also get `/orders/return` after paying — the success and tracking page — and
+`/orders/:id?report=1` opens the case form directly.
+
+Buyers and farmers: `/notifications` lists unread chat threads and transaction updates (payment held, farmer accepted,
+delivery, receipt confirmed, case opened, payout). The navbar bell shows the combined unread count. Transaction notices
+are derived from current order state and marked seen per user in `localStorage`; chat unread counts clear when the thread
+is opened.
 
 Per role: `/buyer/dashboard`, `/farmer/dashboard`, `/farmer/post-livestock`, `/farmer/verify-farm` (KYC form and its
-status), `/deliveries` (the driver's runs and the code entry), `/admin/dashboard` (one console with tabs for the
+status), `/deliveries` (legacy driver runs and code entry), `/admin/dashboard` (one console with tabs for the
 numbers, users, complaints, KYC, orders, payouts, cases, moderation and settings). `ProtectedRoute` redirects anonymous
 visitors to `/login` and remembers where they were heading; the session is restored from the stored token on reload via
 `/auth/me`, and a signed in account on the wrong route gets a plain "Not available for your account" notice rather than
@@ -383,9 +396,9 @@ taken down one back up or open the buyer's view of it. `/verify-email` and `/res
 in or out, because a person arrives at them from an email. A successful password reset clears the stored token locally,
 since the server has just invalidated it.
 
-Order screens are written to the same rule as the API: a buyer sees the handover code, the driver sees a box to type it
-in and never the code, and bank details stay masked for the farmer and buyer. Full account numbers are limited to the
-admin KYC queue and the admin Payouts tab, where staff need them to send the money manually.
+Order screens follow the simplified delivery rule: the buyer confirms receipt directly, the old code box is no longer
+part of the buyer order page, and bank details stay masked for the farmer and buyer. Full account numbers are limited to
+the admin KYC queue and the admin Payouts tab, where staff need them to send the money manually.
 
 Every page is checked at 360, 640, 768, 1024 and 1440 px for horizontal overflow. Below `md` the navigation collapses
 into a menu button.
@@ -402,7 +415,7 @@ never commit the result.
 | `MONGODB_URI` | always | Atlas connection string. Create a database user rather than using the cluster owner |
 | `JWT_SECRET` | always | 64 hex characters: `node -p "require('crypto').randomBytes(32).toString('hex')"` |
 | `CLIENT_ORIGIN` | always | Comma separated browser origins allowed to call the API |
-| `MAIL_PROVIDER` + `BREVO_API_KEY`, `MAIL_FROM_EMAIL` | everything that reaches a user | The only outbound channel: codes, handover codes, reset links. `console` prints mail and is refused in production |
+| `MAIL_PROVIDER` + `BREVO_API_KEY`, `MAIL_FROM_EMAIL` | everything that reaches a user | The only outbound channel: confirmation links, legacy handover codes, reset links. `console` prints mail and is refused in production |
 | `PUBLIC_APP_URL` | always | Base URL inside emailed links. Set to the deployed web app |
 | `PAYMENT_PROVIDER` + `PAYSTACK_SECRET_KEY`, `PAYSTACK_WEBHOOK_SECRET` | taking money | `mock` is refused in production. Test keys first, live keys at launch |
 | `STORAGE_PROVIDER` + `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | real images | `local` writes under `server/uploads` and is refused in production, because a container has no durable disk |

@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import appLogo from '../../utils/Halal Livestock Marketplace Logo.png';
 
 const POINTS = [
   'Farmers prove who they are before a listing gets the verified badge.',
@@ -11,6 +13,10 @@ export function AuthShell({ title, caption, children }: { title: string; caption
     <div className="grid min-h-[calc(100dvh-65px)] lg:grid-cols-2">
       <div className="page-shell flex items-center justify-center py-14">
         <div className="w-full max-w-md">
+          <Link to="/" className="mb-6 inline-flex items-center gap-2.5">
+            <img src={appLogo} alt="Halal Livestocks" className="size-10 rounded-xl object-contain shadow-sm" />
+            <span className="font-display text-xl font-bold text-ink-900">Halal Livestocks</span>
+          </Link>
           <h1 className="text-3xl font-bold text-ink-900">{title}</h1>
           <p className="mt-2 text-ink-500">{caption}</p>
           <div className="mt-8">{children}</div>

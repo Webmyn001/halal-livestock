@@ -267,7 +267,9 @@ export async function moderateListing(req: Request, res: Response): Promise<void
   const input = moderateListingSchema.parse(req.body) as { action: 'restore' | 'remove'; reason?: string };
   const listing = await Listing.findById(req.params.id).populate('farmerId', 'fullName farmerProfile.status');
   if (!listing) throw ApiError.notFound('That listing no longer exists');
-  if (input.action === 'restore' && listing.status === 'sold') throw ApiError.conflict('That listing sold out, so it cannot be put back on sale');
+  if (input.action === 'restore' && (listing.status === 'sold' || listing.status === 'under_process')) {
+    throw ApiError.conflict('That listing is already sold or under process, so it cannot be put back on sale');
+  }
 
   listing.status = input.action === 'remove' ? 'removed' : 'active';
   if (input.action === 'remove') listing.soldAt = undefined;

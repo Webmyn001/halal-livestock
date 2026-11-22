@@ -7,7 +7,7 @@ import { User } from '../models/User';
 import { loadSettings } from '../models/PlatformSettings';
 import { createCheckout, newPaymentReference, verifyCheckout } from '../services/paymentService';
 import { Conversation, Message, toPublicMessage } from '../models/Chat';
-import { acceptOrder, cancelOrder, createOrderCode, markFunded, releaseStock, reserveStock } from '../services/orderFlow';
+import { acceptOrder, cancelOrder, confirmByBuyer, createOrderCode, markFunded, releaseStock, reserveStock } from '../services/orderFlow';
 import {
   cancelOrderSchema,
   createOrderSchema,
@@ -48,7 +48,10 @@ export async function createOrder(req: Request, res: Response): Promise<void> {
   }
 
   const listing = await Listing.findById(input.listingId);
-  if (!listing || listing.status !== 'active') throw ApiError.notFound('That listing is no longer on sale');
+  if (!listing) throw ApiError.notFound('That listing no longer exists');
+  if (listing.status === 'sold') throw ApiError.conflict('This livestock item has already been sold');
+  if (listing.status === 'under_process') throw ApiError.conflict('This livestock item is currently under process with another buyer');
+  if (listing.status !== 'active') throw ApiError.notFound('That listing is no longer on sale');
   if (String(listing.farmerId) === req.user!.userId) throw ApiError.forbidden('You cannot buy from your own listing');
 
   const totalKobo = listing.priceKobo * input.quantity;
@@ -171,6 +174,7 @@ export async function startPayment(req: Request, res: Response): Promise<void> {
   await order.save();
 
   const checkout = await createCheckout({
+    orderId: order.id,
     reference: order.paymentReference,
     amountKobo: order.totalKobo,
     email: buyer.email,
@@ -219,5 +223,15 @@ export async function cancelOrderByBuyer(req: Request, res: Response): Promise<v
   if (!isBuyer && req.user!.role !== 'admin') throw ApiError.forbidden('Only the buyer can cancel this order');
 
   await cancelOrder(order, reason);
+  sendSuccess(res, { order: toPublicOrder(order, req.user!) });
+}
+
+/** Buyer directly marks the order as received — no driver code needed. */
+export async function confirmReceiptByBuyer(req: Request, res: Response): Promise<void> {
+  const order = await findVisibleOrder(req);
+  if (String(order.buyerId?._id ?? '') !== req.user!.userId) throw ApiError.forbidden('Only the buyer can confirm receipt');
+
+  await confirmByBuyer(order);
+  await order.populate('farmerId', PARTIES);
   sendSuccess(res, { order: toPublicOrder(order, req.user!) });
 }

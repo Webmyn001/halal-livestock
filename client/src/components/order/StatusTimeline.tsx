@@ -1,5 +1,5 @@
 import type { Order, OrderStatus } from '../../types';
-import { ORDER_STEPS, ORDER_STATUS_LABELS, orderStatusStyle, stepIndex } from '../../utils/orderMeta';
+import { getOrderSteps, ORDER_STATUS_LABELS, orderStatusStyle, stepIndex } from '../../utils/orderMeta';
 import { formatDateTime } from '../../utils/format';
 
 const DATE_FOR_STEP: Partial<Record<OrderStatus, keyof Order>> = {
@@ -9,7 +9,8 @@ const DATE_FOR_STEP: Partial<Record<OrderStatus, keyof Order>> = {
   confirmed: 'confirmedAt',
 };
 
-export function StatusTimeline({ order }: { order: Order }) {
+export function StatusTimeline({ order, role = 'buyer' }: { order: Order; role?: 'buyer' | 'farmer' | 'admin' }) {
+  const ORDER_STEPS = getOrderSteps(role);
   if (order.status === 'cancelled' || order.status === 'refunded') {
     return (
       <div className="rounded-xl bg-stone-50 px-4 py-3.5 ring-1 ring-inset ring-stone-200">

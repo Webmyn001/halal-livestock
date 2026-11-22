@@ -4,8 +4,8 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   awaiting_payment: 'Waiting for payment',
   funded: 'Payment received',
   preparing: 'Farmer is preparing',
-  out_for_delivery: 'On the way to you',
-  confirmed: 'Handed over',
+  out_for_delivery: 'Delivery being arranged',
+  confirmed: 'Buyer confirmed receipt',
   completed: 'Farmer has been paid',
   cancelled: 'Cancelled',
   refunded: 'Refunded',
@@ -26,14 +26,38 @@ export function orderStatusStyle(status: OrderStatus): string {
   return ORDER_STATUS_STYLES[status];
 }
 
-/** The steps a buyer sees, in the order they happen. */
-export const ORDER_STEPS: { status: OrderStatus; label: string; caption: string }[] = [
-  { status: 'funded', label: 'Payment received', caption: 'Your money is held by the platform, not sent to the farm.' },
-  { status: 'preparing', label: 'Farmer accepted', caption: 'The farm has taken the order and is getting the animals ready.' },
-  { status: 'out_for_delivery', label: 'On the way', caption: 'A driver is bringing them to you with a code to collect.' },
-  { status: 'confirmed', label: 'Handed over', caption: 'You checked the animals and gave the driver the code.' },
-  { status: 'completed', label: 'Farmer paid', caption: 'The payout left the platform for the farm.' },
-];
+/** Order tracking steps. Pass the viewer's role for the right wording. */
+export function getOrderSteps(role: 'buyer' | 'farmer' | 'admin'): { status: OrderStatus; label: string; caption: string }[] {
+  if (role === 'farmer') {
+    return [
+      { status: 'funded', label: 'Payment held', caption: "Buyer's money is safely held by Halal Livestocks — not yet yours." },
+      { status: 'preparing', label: 'You accepted', caption: 'Get the animals ready. Agree delivery details with the buyer in the chat.' },
+      { status: 'out_for_delivery', label: 'Delivery in progress', caption: 'Buyer and seller have agreed on delivery. Awaiting confirmation from buyer.' },
+      { status: 'confirmed', label: 'Buyer confirmed', caption: 'The buyer confirmed they received the animals.' },
+      { status: 'completed', label: 'You have been paid', caption: 'The admin has released your payout.' },
+    ];
+  }
+  if (role === 'admin') {
+    return [
+      { status: 'funded', label: 'Payment held', caption: 'Funds are secured with the platform.' },
+      { status: 'preparing', label: 'Farmer accepted', caption: 'Farmer is preparing the order.' },
+      { status: 'out_for_delivery', label: 'Delivery arranged', caption: 'Buyer and farmer have agreed on delivery.' },
+      { status: 'confirmed', label: 'Buyer confirmed receipt', caption: 'Buyer marked the order as received.' },
+      { status: 'completed', label: 'Farmer paid out', caption: 'Settlement released to the farmer.' },
+    ];
+  }
+  // buyer (default)
+  return [
+    { status: 'funded', label: 'Payment held safely', caption: 'Your money is held by Halal Livestocks — not sent to the farmer yet.' },
+    { status: 'preparing', label: 'Farmer accepted', caption: 'The farmer accepted your order. Chat with them to agree on delivery.' },
+    { status: 'out_for_delivery', label: 'On the way to you', caption: 'Delivery is being arranged. Use the chat to coordinate with the farmer.' },
+    { status: 'confirmed', label: 'You confirmed receipt', caption: 'You confirmed you received the animals.' },
+    { status: 'completed', label: 'Farmer paid', caption: 'The farmer has been paid. Order complete.' },
+  ];
+}
+
+/** @deprecated Use getOrderSteps(role) */
+export const ORDER_STEPS = getOrderSteps('buyer');
 
 export function stepIndex(status: OrderStatus): number {
   const order: OrderStatus[] = ['awaiting_payment', 'funded', 'preparing', 'out_for_delivery', 'confirmed', 'completed'];

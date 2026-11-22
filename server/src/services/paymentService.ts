@@ -7,6 +7,8 @@ const PAYSTACK_BASE_URL = 'https://api.paystack.co';
 const REQUEST_TIMEOUT_MS = 15_000;
 
 export interface CheckoutRequest {
+  /** Needed in the return URL so the success page can re-check the right order. */
+  orderId: string;
   reference: string;
   /** Amount in kobo. Paystack charges the smallest unit, so nothing is rounded here. */
   amountKobo: number;
@@ -42,7 +44,7 @@ export async function createCheckout(request: CheckoutRequest): Promise<Checkout
   if (isMockPayment()) {
     createMockCheckoutRecord(request.reference, request.amountKobo);
     // The mock page posts back to /payments/mock/complete, which is refused once NODE_ENV is production.
-    const url = `${env.PUBLIC_APP_URL}/checkout/mock?reference=${encodeURIComponent(request.reference)}&order=${encodeURIComponent(request.orderCode)}&amountKobo=${request.amountKobo}`;
+    const url = `${env.PUBLIC_APP_URL}/checkout/mock?reference=${encodeURIComponent(request.reference)}&order=${encodeURIComponent(request.orderCode)}&orderId=${encodeURIComponent(request.orderId)}&amountKobo=${request.amountKobo}`;
     logger.info('Mock checkout created', { reference: request.reference, orderCode: request.orderCode });
     return { provider: 'mock', reference: request.reference, authorizationUrl: url };
   }
@@ -54,7 +56,7 @@ export async function createCheckout(request: CheckoutRequest): Promise<Checkout
     reference: request.reference,
     phone: request.phone,
     metadata: { order_code: request.orderCode, customer: request.fullName },
-    callback_url: `${env.PUBLIC_APP_URL}/orders/return?reference=${encodeURIComponent(request.reference)}`,
+    callback_url: `${env.PUBLIC_APP_URL}/orders/return?reference=${encodeURIComponent(request.reference)}&order=${encodeURIComponent(request.orderId)}`,
   });
 
   const data = response.data as { authorization_url?: string; access_code?: string; reference?: string };

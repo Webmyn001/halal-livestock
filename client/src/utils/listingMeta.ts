@@ -33,12 +33,14 @@ export const UNIT_LABELS: Record<ListingUnit, string> = {
 
 export const STATUS_LABELS: Record<ListingStatus, string> = {
   active: 'Available',
+  under_process: 'Under process',
   sold: 'Sold',
   removed: 'Taken down',
 };
 
 export const STATUS_STYLES: Record<ListingStatus, string> = {
   active: 'bg-brand-50 text-brand-800 ring-brand-200',
-  sold: 'bg-stone-100 text-ink-700 ring-stone-300',
-  removed: 'bg-amber-50 text-amber-800 ring-amber-200',
+  under_process: 'bg-amber-100 text-amber-900 ring-amber-300',
+  sold: 'bg-red-100 text-red-900 ring-red-300',
+  removed: 'bg-stone-100 text-stone-700 ring-stone-200',
 };

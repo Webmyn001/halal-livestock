@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FaEnvelope, FaFacebookF, FaInstagram, FaPhone, FaTwitter } from 'react-icons/fa6';
+import appLogo from '../../utils/Halal Livestock Marketplace Logo.png';
 
 const CONTACT_EMAIL = 'hello@halallivestocks.ng';
 const CONTACT_PHONE = '+234 803 000 0000';
@@ -16,9 +17,7 @@ export function Footer() {
       <div className="page-shell grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-3">
         <div className="sm:col-span-2 lg:col-span-1">
           <div className="flex items-center gap-2.5">
-            <span aria-hidden="true" className="grid size-9 place-items-center rounded-xl bg-white/10 font-display text-sm font-bold text-white">
-              HL
-            </span>
+            <img src={appLogo} alt="Halal Livestocks Logo" className="size-9 rounded-xl bg-white p-0.5 object-contain shadow-sm" />
             <span className="font-display text-base font-semibold text-white">Halal Livestocks</span>
           </div>
           <p className="mt-4 max-w-xs text-sm leading-relaxed">
@@ -87,7 +86,7 @@ export function Footer() {
           <ul className="mt-4 space-y-2 text-sm leading-relaxed">
             <li>Farmers verify identity and bank details before listing</li>
             <li>Commission on completed orders only</li>
-            <li>Payout released after the buyer hands over the code</li>
+            <li>Payout released after the buyer confirms receipt</li>
           </ul>
         </div>
 

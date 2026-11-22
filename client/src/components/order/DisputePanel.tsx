@@ -15,12 +15,18 @@ interface DisputePanelProps {
   totalKobo: number;
   /** A case can only be opened once the money is held or the animals have arrived. */
   canOpen: boolean;
+  /** Whether the viewer is the buyer (affects wording). */
+  isBuyer?: boolean;
+  /** Pre-select a dispute reason. */
+  defaultReason?: DisputeReason;
+  /** Compact mode — hides the intro paragraph and auto-opens the form. */
+  compact?: boolean;
 }
 
-export function DisputePanel({ orderId, orderCode, totalKobo, canOpen }: DisputePanelProps) {
+export function DisputePanel({ orderId, orderCode, totalKobo, canOpen, isBuyer = false, defaultReason, compact = false }: DisputePanelProps) {
   const [dispute, setDispute] = useState<Dispute | null | 'loading'>('loading');
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [reason, setReason] = useState<DisputeReason>('not_as_described');
+  const [isFormOpen, setIsFormOpen] = useState(compact);
+  const [reason, setReason] = useState<DisputeReason>(defaultReason ?? 'not_as_described');
   const [description, setDescription] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState<'create' | 'evidence' | 'remove' | null>(null);
@@ -137,13 +143,12 @@ export function DisputePanel({ orderId, orderCode, totalKobo, canOpen }: Dispute
           ) : null}
 
           {dispute.resolutionNote ? (
-            <Alert tone="info" title="Ruling from the review team">
+            <Alert tone="info" title="Decision from the admin">
               {dispute.resolutionNote}
             </Alert>
           ) : (
             <p className="text-xs leading-relaxed text-ink-500">
-              While this case is open the payout on order {orderCode} for {formatNaira(totalKobo)} stays with the platform.
-              An admin reads the messages, looks at the photos and rules either for a refund or for the release.
+              Your report on order {orderCode} for {formatNaira(totalKobo)} is under review. Your money stays safe with the platform while this is open. The admin will investigate and decide.
             </p>
           )}
 
@@ -197,11 +202,12 @@ export function DisputePanel({ orderId, orderCode, totalKobo, canOpen }: Dispute
         ) : (
           <div className="space-y-3">
             <p className="text-sm leading-relaxed text-ink-500">
-              Something wrong with the animals or the delivery? Open a case and the payout stops until an admin reads it.
-              You can still message the other side first.
+              {isBuyer
+                ? "Didn't receive what you paid for? Report it and the admin will investigate. Your money stays safe."
+                : 'Something wrong with this order? Report it and an admin will review.'}
             </p>
             <Button variant="secondary" onClick={() => setIsFormOpen(true)}>
-              Report a problem with this order
+              Report a problem
             </Button>
           </div>
         )

@@ -29,10 +29,9 @@ export function AdminConsolePage() {
     <div className="page-shell py-10 sm:py-12">
       <header>
         <p className="eyebrow">Staff only</p>
-        <h1 className="mt-2 text-2xl font-bold text-ink-900 sm:text-3xl">Admin console</h1>
+        <h1 className="mt-2 text-2xl font-bold text-ink-900 sm:text-3xl">Admin Console</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-500">
-          Every payout, every case and every verification decision runs through here. Money never moves on a timer, only
-          on a ruling recorded by a person.
+          Full visibility of every order, payment, and user. Payouts only move when you approve them.
         </p>
       </header>
 
@@ -101,21 +100,29 @@ function OverviewTab() {
   if (!counts) return <Loading />;
 
   const ordersPlaced = Object.values(counts.orders).reduce((sum, value) => sum + value, 0);
+  const ordersCompleted = counts.orders['completed'] ?? 0;
+  const ordersActive = (['funded', 'preparing', 'out_for_delivery'] as const).reduce(
+    (sum, s) => sum + (counts.orders[s] ?? 0),
+    0,
+  );
+  const ordersCancelled = (counts.orders['cancelled'] ?? 0) + (counts.orders['refunded'] ?? 0);
 
   const tiles = [
     { label: 'Buyers', value: String(counts.buyers) },
     { label: 'Farmers', value: String(counts.farmers) },
-    { label: 'Drivers', value: String(counts.drivers) },
-    { label: 'Live listings', value: String(counts.activeListings) },
-    { label: 'Open cases', value: String(counts.openDisputes) },
-    { label: 'Verifications waiting', value: String(counts.kycWaiting) },
-    { label: 'Complaints open', value: String(counts.openComplaints) },
+    { label: 'Live products', value: String(counts.activeListings) },
     { label: 'Orders placed', value: String(ordersPlaced) },
+    { label: 'Orders completed', value: String(ordersCompleted) },
+    { label: 'Orders in progress', value: String(ordersActive) },
+    { label: 'Open disputes', value: String(counts.openDisputes) },
+    { label: 'Farms awaiting review', value: String(counts.kycWaiting) },
+    { label: 'Open complaints', value: String(counts.openComplaints) },
+    { label: 'Cancelled / Refunded', value: String(ordersCancelled) },
   ];
 
   return (
     <div className="space-y-7">
-      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {tiles.map((tile) => (
           <div key={tile.label} className="rounded-card bg-white px-5 py-4 ring-1 ring-stone-200 shadow-card">
             <dt className="text-xs text-ink-500">{tile.label}</dt>
@@ -128,21 +135,20 @@ function OverviewTab() {
         <h2 className="font-display text-lg font-semibold text-white">Money on the platform</h2>
         <dl className="mt-4 grid gap-4 sm:grid-cols-3">
           <div>
-            <dt className="text-xs text-brand-200">Waiting to be released</dt>
+            <dt className="text-xs text-brand-200">Ready to release to farmers</dt>
             <dd className="mt-1 text-xl font-bold text-white">{formatNaira(counts.payouts.pendingKobo)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-brand-200">Held back</dt>
+            <dt className="text-xs text-brand-200">Frozen (dispute open)</dt>
             <dd className="mt-1 text-xl font-bold text-white">{formatNaira(counts.payouts.heldKobo)}</dd>
           </div>
           <div>
-            <dt className="text-xs text-brand-200">Paid out</dt>
+            <dt className="text-xs text-brand-200">Already paid out</dt>
             <dd className="mt-1 text-xl font-bold text-white">{formatNaira(counts.payouts.releasedKobo)}</dd>
           </div>
         </dl>
         <p className="mt-4 text-xs leading-relaxed text-brand-200">
-          Held back means a case is open, or the farm has not finished verification. A payout only moves when it is
-          released from the Payouts tab with a transfer reference.
+          Frozen money stays locked while a dispute is open. Release payouts manually from the Payouts tab.
         </p>
       </div>
     </div>

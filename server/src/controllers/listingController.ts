@@ -118,7 +118,7 @@ export async function createListing(req: Request, res: Response): Promise<void> 
 export async function listListings(req: Request, res: Response): Promise<void> {
   const query = listQuerySchema.parse(req.query);
 
-  const filter: Record<string, unknown> = { status: 'active' };
+  const filter: Record<string, unknown> = { status: { $in: ['active', 'under_process', 'sold'] } };
   if (query.species) filter.species = query.species;
   if (query.type) filter.listingType = query.type;
   if (query.q) {
