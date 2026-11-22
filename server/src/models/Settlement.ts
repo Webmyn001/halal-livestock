@@ -64,7 +64,18 @@ settlementSchema.index({ createdAt: -1 });
 
 export function toPublicSettlement(settlement: SettlementDoc) {
   const order = settlement.orderId as unknown as { orderCode?: string } | null;
-  const farmer = settlement.farmerId as unknown as { fullName?: string } | null;
+  const farmer = settlement.farmerId as unknown as {
+    fullName?: string;
+    farmerProfile?: { bankName?: string; accountName?: string; accountNumber?: string };
+  } | null;
+  const profile = farmer?.farmerProfile;
+
+  // Staff need the live KYC account before they send the money. `bank` is the snapshot taken at
+  // release, so it is absent until then; `farmerBank` makes the pending row actionable.
+  const farmerBank =
+    profile?.bankName && profile.accountName && profile.accountNumber
+      ? { bankName: profile.bankName, accountName: profile.accountName, accountNumber: profile.accountNumber }
+      : undefined;
 
   return {
     id: settlement.id,
@@ -76,6 +87,7 @@ export function toPublicSettlement(settlement: SettlementDoc) {
     commissionKobo: settlement.commissionKobo,
     netKobo: settlement.netKobo,
     status: settlement.status,
+    farmerBank,
     bank: settlement.bank,
     reference: settlement.reference,
     releasedAt: settlement.releasedAt,

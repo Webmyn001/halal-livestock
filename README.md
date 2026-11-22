@@ -134,11 +134,11 @@ Everything below is `requireSessionRole('admin')`.
 | GET | `/api/v1/admin/users` | Search accounts by name, email or phone; filter by role, paged |
 | GET | `/api/v1/admin/complaints` | Support desk queue |
 | PATCH | `/api/v1/admin/complaints/:id` | Move a complaint to `under_review`, `resolved` or `closed` with a written reply |
-| GET | `/api/v1/admin/kyc` | Farmers waiting to be verified, with the bank details masked |
+| GET | `/api/v1/admin/kyc` | Farmers waiting to be verified, with the full bank details for staff to check against the account name |
 | POST | `/api/v1/admin/kyc/:userId` | Approve or reject a KYC submission. Approval promotes the farm and frees its payout |
 | GET | `/api/v1/admin/orders` | Every order, filterable by status |
-| GET | `/api/v1/admin/settlements` | The payout ledger |
-| POST | `/api/v1/admin/settlements/:id/release` | Pay a farmer out. Refuses while a dispute is open or the KYC is unapproved |
+| GET | `/api/v1/admin/settlements` | The payout ledger, including the live KYC account for each pending row |
+| POST | `/api/v1/admin/settlements/:id/release` | Record a payout the admin has already sent manually. Refuses while a dispute is open or the KYC is unapproved |
 | GET | `/api/v1/admin/disputes` | Every case, open first |
 | POST | `/api/v1/admin/disputes/:id/rule` | Rule a case: refund the buyer, release the payout, or reject |
 | POST | `/api/v1/admin/listings/:id/moderate` | Take a listing down with a reason, or put a taken down one back up. A sold lot cannot be restored |
@@ -310,10 +310,16 @@ closes and the app points the buyer at the chat or support instead.
 ID number, optional CAC number, and the bank name, account name and a 10 or 11 digit account number. The document photo
 is optional because farmers photograph IDs badly on phones; an admin can ask for it later.
 
-The admin queue shows the submissions with the account number masked. Approving one stamps the farm as verified and
-frees any payout held for that reason; rejecting it needs a written note the farmer can read. A payout cannot be
-released to an unapproved account at all — that is the guard that keeps a mis-keyed account number from sending money
-nowhere.
+The admin queue shows the full account number so staff can match it against the account name. Approving one stamps the
+farm as verified and frees any payout held for that reason; rejecting it needs a written note the farmer can read. A
+payout cannot be marked paid out against an unapproved account at all — that is the guard that keeps a mis-keyed account
+number from recording a payment that went nowhere.
+
+**Nothing pays a farmer automatically.** The app does not call Paystack transfers, hold recipient codes or run a
+scheduled release. Once an order is confirmed, a `Settlement` row is created; the admin reads the bank details in the
+Payouts tab, sends the money by bank transfer or Paystack outside the app, then enters the transfer reference and clicks
+**Mark as paid out**. That click only flips the ledger to `released`, snapshots the account and sets the order to
+`completed`.
 
 ## Platform settings
 
@@ -372,7 +378,8 @@ in or out, because a person arrives at them from an email. A successful password
 since the server has just invalidated it.
 
 Order screens are written to the same rule as the API: a buyer sees the handover code, the driver sees a box to type it
-in and never the code, and the payout bank details only reach the farmer who owns them.
+in and never the code, and bank details stay masked for the farmer and buyer. Full account numbers are limited to the
+admin KYC queue and the admin Payouts tab, where staff need them to send the money manually.
 
 Every page is checked at 360, 640, 768, 1024 and 1440 px for horizontal overflow. Below `md` the navigation collapses
 into a menu button.

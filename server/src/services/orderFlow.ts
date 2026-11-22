@@ -197,7 +197,9 @@ async function buildSettlement(order: OrderDoc): Promise<void> {
 }
 
 export async function releaseSettlement(order: OrderDoc, actorId: string, reference: string): Promise<{ order: OrderDoc; settlement: SettlementDoc }> {
-  const settlement = await Settlement.findById(order.settlementId).populate('orderId', 'orderCode').populate('farmerId', 'fullName');
+  const settlement = await Settlement.findById(order.settlementId)
+    .populate('orderId', 'orderCode')
+    .populate('farmerId', 'fullName farmerProfile');
   if (!settlement) throw ApiError.notFound('No payout has been raised for this order');
   if (settlement.status === 'released') throw ApiError.conflict('This payout has already been released');
   if (order.disputeOpen) throw ApiError.conflict('A dispute is open on this order. Settle it first.');

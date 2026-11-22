@@ -164,7 +164,7 @@ export async function listSettlements(req: Request, res: Response): Promise<void
   const settlements = await Settlement.find(filter)
     .sort({ createdAt: -1 })
     .limit(100)
-    .populate('farmerId', 'fullName')
+    .populate('farmerId', 'fullName farmerProfile')
     .populate('orderId', 'orderCode');
 
   sendSuccess(res, { settlements: settlements.map(toPublicSettlement) });

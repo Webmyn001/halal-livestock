@@ -337,6 +337,9 @@ export interface Settlement {
   commissionKobo: number;
   netKobo: number;
   status: SettlementStatus;
+  /** Live KYC account, shown to staff before the transfer is made. */
+  farmerBank?: { bankName: string; accountName: string; accountNumber: string };
+  /** Snapshot of the account at release; absent until the payout is marked paid out. */
   bank?: { bankName: string; accountName: string; accountNumber: string };
   reference?: string;
   releasedAt?: string | null;

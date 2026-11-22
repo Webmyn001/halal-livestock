@@ -295,9 +295,11 @@ function PayoutsTab() {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-ink-900">{row.farmerName ?? 'Farm'} · {row.orderCode}</p>
                   <p className="mt-1 text-xs text-ink-500">Created {formatDate(row.createdAt)}</p>
-                  {row.bank ? (
+                  {(row.bank ?? row.farmerBank) ? (
                     <p className="mt-1 text-xs text-ink-700">
-                      {row.bank.bankName} · {row.bank.accountName} · {row.bank.accountNumber}
+                      <span className="font-semibold">{row.bank ? 'Paid to' : 'Pay this account'}</span>{' '}
+                      {(row.bank ?? row.farmerBank)!.bankName} · {(row.bank ?? row.farmerBank)!.accountName} ·{' '}
+                      {(row.bank ?? row.farmerBank)!.accountNumber}
                     </p>
                   ) : null}
                   {row.note ? <p className="mt-1.5 text-xs text-amber-800">{row.note}</p> : null}
@@ -322,7 +324,7 @@ function PayoutsTab() {
                     label="Transfer reference"
                     value={references[row.id] ?? ''}
                     onChange={(event) => setReferences((current) => ({ ...current, [row.id]: event.target.value }))}
-                    hint="The bank or Paystack transfer identifier. It is written on the payout record."
+                    hint="Send the money to the account above first. Nothing is paid automatically — this records the transfer identifier."
                     className="max-w-xs"
                   />
                   <Button
