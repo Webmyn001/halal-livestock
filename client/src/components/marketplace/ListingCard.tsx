@@ -5,7 +5,7 @@ import { formatNaira } from '../../utils/format';
 import { LISTING_TYPE_SHORT, SPECIES_LABELS, UNIT_LABELS } from '../../utils/listingMeta';
 
 function statusBadge(listing: Listing) {
-  if (listing.status === 'sold') {
+  if (listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0)) {
     return { label: 'SOLD', style: 'bg-red-600 text-white shadow-md' };
   }
   if (listing.status === 'under_process') {
@@ -13,9 +13,6 @@ function statusBadge(listing: Listing) {
   }
   if (listing.status === 'removed') {
     return { label: 'UNAVAILABLE', style: 'bg-stone-700 text-white shadow-md' };
-  }
-  if (listing.quantity === 0) {
-    return { label: 'UNDER PROCESS', style: 'bg-amber-600 text-white shadow-md' };
   }
   return null;
 }
@@ -70,9 +67,11 @@ export function ListingCard({ listing }: { listing: Listing }) {
             </p>
             {badge ? (
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold tracking-wider uppercase ring-1 ring-inset ${
-                listing.status === 'sold'
+                badge.label === 'SOLD'
                   ? 'bg-red-50 text-red-700 ring-red-200'
-                  : 'bg-amber-50 text-amber-800 ring-amber-200'
+                  : badge.label === 'UNDER PROCESS'
+                    ? 'bg-amber-50 text-amber-800 ring-amber-200'
+                    : 'bg-stone-50 text-stone-700 ring-stone-200'
               }`}>
                 {badge.label}
               </span>

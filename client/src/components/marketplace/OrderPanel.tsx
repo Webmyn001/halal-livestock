@@ -40,8 +40,8 @@ export function OrderPanel({ listing }: OrderPanelProps) {
 
   // ── Sold / under process / unavailable: show a bold block, no order form ──────────────────
   if (!canSell) {
-    const isSold = listing.status === 'sold';
-    const isUnderProcess = listing.status === 'under_process' || (listing.status === 'active' && listing.quantity === 0);
+    const isSold = listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0);
+    const isUnderProcess = listing.status === 'under_process';
 
     return (
       <div

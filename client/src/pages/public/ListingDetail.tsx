@@ -114,10 +114,10 @@ export function ListingDetailPage() {
       </Link>
 
       {/* Bold status banner — shown before anything else for non-active listings */}
-      {listing.status !== 'active' ? (
+      {listing.status !== 'active' || listing.quantity === 0 ? (
         <div
           className={`mt-5 rounded-2xl px-6 py-5 ring-2 shadow-sm ${
-            listing.status === 'sold'
+            listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0)
               ? 'bg-red-50 ring-red-400'
               : listing.status === 'under_process'
                 ? 'bg-amber-50 ring-amber-400'
@@ -127,7 +127,7 @@ export function ListingDetailPage() {
           <div className="flex items-center gap-3">
             <span
               className={`inline-block size-3 rounded-full ${
-                listing.status === 'sold'
+                listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0)
                   ? 'bg-red-600'
                   : listing.status === 'under_process'
                     ? 'bg-amber-500 animate-pulse'
@@ -136,14 +136,14 @@ export function ListingDetailPage() {
             />
             <p
               className={`text-xl font-black uppercase tracking-wider ${
-                listing.status === 'sold'
+                listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0)
                   ? 'text-red-700'
                   : listing.status === 'under_process'
                     ? 'text-amber-800'
                     : 'text-stone-700'
               }`}
             >
-              {listing.status === 'sold'
+              {listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0)
                 ? '🔴 THIS LOT IS SOLD'
                 : listing.status === 'under_process'
                   ? '⏳ ORDER UNDER PROCESS'
@@ -152,14 +152,14 @@ export function ListingDetailPage() {
           </div>
           <p
             className={`mt-2 text-sm font-medium leading-relaxed ${
-              listing.status === 'sold'
+              listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0)
                 ? 'text-red-800'
                 : listing.status === 'under_process'
                   ? 'text-amber-900'
                   : 'text-stone-700'
             }`}
           >
-            {listing.status === 'sold'
+            {listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0)
               ? 'Another buyer has already purchased this lot. It is no longer available for order.'
               : listing.status === 'under_process'
                 ? 'An order is currently in progress for this livestock item. It cannot be purchased by another buyer.'

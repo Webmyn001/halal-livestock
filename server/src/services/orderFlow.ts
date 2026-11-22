@@ -146,7 +146,7 @@ export async function confirmHandover(order: OrderDoc, code: string): Promise<Or
 
   // Mark listing as sold if quantity is 0 or it was under process
   const listing = await Listing.findById(order.listingId).select('quantity status').lean();
-  if (listing && listing.quantity <= 0) {
+  if (listing && (listing.quantity <= 0 || listing.status === 'under_process')) {
     await Listing.updateOne({ _id: listing._id }, { $set: { status: 'sold', soldAt: new Date() } });
   }
 
@@ -170,7 +170,7 @@ export async function confirmByBuyer(order: OrderDoc): Promise<OrderDoc> {
 
   // Mark listing as sold if quantity is 0 or it was under process
   const listing = await Listing.findById(order.listingId).select('quantity status').lean();
-  if (listing && listing.quantity <= 0) {
+  if (listing && (listing.quantity <= 0 || listing.status === 'under_process')) {
     await Listing.updateOne({ _id: listing._id }, { $set: { status: 'sold', soldAt: new Date() } });
   }
 
@@ -270,7 +270,7 @@ export async function releaseSettlement(order: OrderDoc, actorId: string, refere
 
   // Sold out is a fact about the listing, not about this order, so it is set from the stock count.
   const listing = await Listing.findById(order.listingId).select('quantity status').lean();
-  if (listing && listing.quantity <= 0 && listing.status !== 'removed') {
+  if (listing && (listing.quantity <= 0 || listing.status === 'under_process') && listing.status !== 'removed') {
     await Listing.updateOne({ _id: listing._id }, { $set: { status: 'sold', soldAt: new Date() } });
   }
 

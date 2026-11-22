@@ -49,7 +49,7 @@ export async function createOrder(req: Request, res: Response): Promise<void> {
 
   const listing = await Listing.findById(input.listingId);
   if (!listing) throw ApiError.notFound('That listing no longer exists');
-  if (listing.status === 'sold') throw ApiError.conflict('This livestock item has already been sold');
+  if (listing.status === 'sold' || listing.quantity <= 0) throw ApiError.conflict('This livestock item has already been sold');
   if (listing.status === 'under_process') throw ApiError.conflict('This livestock item is currently under process with another buyer');
   if (listing.status !== 'active') throw ApiError.notFound('That listing is no longer on sale');
   if (String(listing.farmerId) === req.user!.userId) throw ApiError.forbidden('You cannot buy from your own listing');
