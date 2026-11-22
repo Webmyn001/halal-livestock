@@ -312,7 +312,7 @@ export function OrderDetailPage() {
                     onClick={() => run('confirm', () => orderService.confirm(order.id))}
                   >
                     <FaCircleCheck aria-hidden="true" className="size-4" />
-                    I received the animals
+                    I received the livestock
                   </Button>
                   <p className="text-center text-xs text-ink-500">
                     Only press this after you have checked and received everything.
@@ -324,7 +324,7 @@ export function OrderDetailPage() {
               {canReportNonReceipt && !showReportForm ? (
                 <Button variant="ghost" className="w-full" onClick={() => setShowReportForm(true)}>
                   <FaTriangleExclamation aria-hidden="true" className="size-4 text-amber-500" />
-                  I did not receive the animals
+                  I did not receive the livestock
                 </Button>
               ) : null}
 
@@ -365,7 +365,7 @@ export function OrderDetailPage() {
           {/* Non-receipt report panel */}
           {showReportForm && canReportNonReceipt ? (
             <div className="rounded-card bg-amber-50 p-6 ring-1 ring-amber-200 shadow-card">
-              <h2 className="font-display text-base font-semibold text-ink-900">Report: I did not receive the animals</h2>
+              <h2 className="font-display text-base font-semibold text-ink-900">Report: I did not receive the livestock</h2>
               <p className="mt-2 text-sm leading-relaxed text-ink-700">
                 Your money is <strong>still safe</strong> with Halal Livestocks. The admin will be notified and will investigate.
               </p>

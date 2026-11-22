@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { FaEnvelope, FaPhone } from 'react-icons/fa6';
+import { FaEnvelope, FaLocationDot, FaPhone } from 'react-icons/fa6';
 import { Alert } from '../../components/common/Alert';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
@@ -11,8 +11,9 @@ import { supportService } from '../../services/supportService';
 import { CATEGORY_LABELS } from '../../utils/complaintMeta';
 import { COMPLAINT_CATEGORIES, type ComplaintCategory, type ComplaintPayload } from '../../types';
 
-const CONTACT_EMAIL = 'hello@halallivestocks.ng';
-const CONTACT_PHONE = '+234 803 000 0000';
+const CONTACT_EMAIL = 'bellomuhyideen0001@gmail.com';
+const CONTACT_PHONE = '09164028709';
+const HEADQUARTERS_ADDRESS = 'No. 2, Anwo Street, Ajadi-Ologuneru, Ibadan, Oyo State, Nigeria';
 
 const EXPECTATIONS = [
   'A person on the support team reads every report, not an auto reply.',
@@ -215,9 +216,13 @@ export function ContactPage() {
                   {CONTACT_PHONE}
                 </a>
               </li>
+              <li className="flex items-start gap-2.5 text-ink-700">
+                <FaLocationDot aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-brand-600" />
+                <span>Headquarters: {HEADQUARTERS_ADDRESS}</span>
+              </li>
             </ul>
             <p className="mt-5 text-xs leading-relaxed text-ink-500">
-              Support hours are Monday to Saturday, 8 in the morning to 6 in the evening, West Africa time.
+              Support hours are Monday to Saturday, 8:00 AM to 6:00 PM West Africa Time.
             </p>
           </div>
 

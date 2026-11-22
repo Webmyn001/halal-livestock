@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
-import { FaEnvelope, FaFacebookF, FaInstagram, FaPhone, FaTwitter } from 'react-icons/fa6';
+import { FaEnvelope, FaFacebookF, FaInstagram, FaLocationDot, FaPhone, FaTwitter } from 'react-icons/fa6';
 import appLogo from '../../utils/Halal Livestock Marketplace Logo.png';
 
-const CONTACT_EMAIL = 'hello@halallivestocks.ng';
-const CONTACT_PHONE = '+234 803 000 0000';
+const CONTACT_EMAIL = 'bellomuhyideen0001@gmail.com';
+const CONTACT_PHONE = '09164028709';
+const HEADQUARTERS_ADDRESS = 'No. 2, Anwo Street, Ajadi-Ologuneru, Ibadan, Oyo State, Nigeria';
 
 const SOCIAL_LINKS = [
   { label: 'Facebook', href: 'https://www.facebook.com/halallivestocks', Icon: FaFacebookF },
@@ -16,15 +17,14 @@ export function Footer() {
     <footer className="bg-brand-900 text-brand-100">
       <div className="page-shell grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-3">
         <div className="sm:col-span-2 lg:col-span-1">
-          <div className="flex items-center gap-2.5">
-            <img src={appLogo} alt="Halal Livestocks Logo" className="size-9 rounded-xl bg-white p-0.5 object-contain shadow-sm" />
-            <span className="font-display text-base font-semibold text-white">Halal Livestocks</span>
+          <div className="flex items-center">
+            <img src={appLogo} alt="Halal Livestock Marketplace" className="h-12 w-auto rounded-xl bg-white p-1.5 object-contain shadow-sm" />
           </div>
           <p className="mt-4 max-w-xs text-sm leading-relaxed">
-            A direct market for rabbits, poultry and sheep in Ibadan and the towns around it.
+            A direct livestock marketplace connecting verified farmers and buyers in Ibadan and across Nigeria.
           </p>
 
-          <ul className="mt-5 space-y-2 text-sm">
+          <ul className="mt-5 space-y-2.5 text-sm">
             <li>
               <a href={`mailto:${CONTACT_EMAIL}`} className="inline-flex items-center gap-2.5 hover:text-white">
                 <FaEnvelope aria-hidden="true" className="size-3.5 shrink-0 text-gold-300" />
@@ -36,6 +36,10 @@ export function Footer() {
                 <FaPhone aria-hidden="true" className="size-3.5 shrink-0 text-gold-300" />
                 {CONTACT_PHONE}
               </a>
+            </li>
+            <li className="flex items-start gap-2.5 text-brand-200">
+              <FaLocationDot aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-gold-300" />
+              <span>Headquarters: {HEADQUARTERS_ADDRESS}</span>
             </li>
           </ul>
 
@@ -84,9 +88,10 @@ export function Footer() {
         <div>
           <h3 className="text-sm font-semibold text-white">Trust and safety</h3>
           <ul className="mt-4 space-y-2 text-sm leading-relaxed">
-            <li>Farmers verify identity and bank details before listing</li>
-            <li>Commission on completed orders only</li>
-            <li>Payout released after the buyer confirms receipt</li>
+            <li>Farmers verify identity and farm details before listing</li>
+            <li>Payments safely held by Halal Livestocks until receipt</li>
+            <li>Direct in-app chat to agree delivery schedule and fee</li>
+            <li>Payout released only when buyer confirms receipt</li>
           </ul>
         </div>
 
@@ -98,7 +103,7 @@ export function Footer() {
             Halal Livestocks is a marketplace operator. Buyer payments are received and safely held under our Buyer
             Protection terms until delivery is confirmed.
           </p>
-          <p className="shrink-0">Ibadan, Oyo State, Nigeria</p>
+          <p className="shrink-0">{HEADQUARTERS_ADDRESS}, Nigeria</p>
         </div>
       </div>
     </footer>

@@ -45,10 +45,9 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-stone-200/80 bg-white/85 backdrop-blur-md">
-      <div className="page-shell flex items-center gap-4 py-3.5 lg:gap-8">
-        <Link to="/" className="flex shrink-0 items-center gap-2.5" onClick={() => setMenuOpen(false)}>
-          <img src={appLogo} alt="Halal Livestocks Logo" className="size-9 rounded-xl object-contain shadow-sm" />
-          <span className="hidden font-display text-base font-semibold text-ink-900 sm:inline">Halal Livestocks</span>
+      <div className="page-shell flex items-center gap-4 py-2.5 lg:gap-8">
+        <Link to="/" className="flex shrink-0 items-center" onClick={() => setMenuOpen(false)}>
+          <img src={appLogo} alt="Halal Livestock Marketplace" className="h-10 sm:h-12 w-auto object-contain" />
         </Link>
 
         <nav className="hidden flex-1 space-x-4 text-sm font-medium text-ink-700 md:flex md:space-x-5 lg:space-x-6">

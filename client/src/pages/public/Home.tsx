@@ -36,8 +36,8 @@ const STEPS = [
     body: 'You pay through Paystack and we hold the money. The farmer sees the order is funded without ever needing to chase you.',
   },
   {
-    title: 'Inspect, then release',
-    body: 'You hand the driver a six digit confirmation code after you check the animals. That code is what releases the payout.',
+    title: 'Inspect, then confirm receipt',
+    body: 'Once you check and count your animals, simply tap "Received" in the app. That confirmation is what releases the payout to the farmer.',
   },
 ];
 

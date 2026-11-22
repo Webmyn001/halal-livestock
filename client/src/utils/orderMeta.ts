@@ -31,9 +31,9 @@ export function getOrderSteps(role: 'buyer' | 'farmer' | 'admin'): { status: Ord
   if (role === 'farmer') {
     return [
       { status: 'funded', label: 'Payment held', caption: "Buyer's money is safely held by Halal Livestocks — not yet yours." },
-      { status: 'preparing', label: 'You accepted', caption: 'Get the animals ready. Agree delivery details with the buyer in the chat.' },
+      { status: 'preparing', label: 'You accepted', caption: 'Get the livestock ready. Agree delivery details with the buyer in the chat.' },
       { status: 'out_for_delivery', label: 'Delivery in progress', caption: 'Buyer and seller have agreed on delivery. Awaiting confirmation from buyer.' },
-      { status: 'confirmed', label: 'Buyer confirmed', caption: 'The buyer confirmed they received the animals.' },
+      { status: 'confirmed', label: 'Buyer confirmed', caption: 'The buyer confirmed they received the livestock.' },
       { status: 'completed', label: 'You have been paid', caption: 'The admin has released your payout.' },
     ];
   }
@@ -51,7 +51,7 @@ export function getOrderSteps(role: 'buyer' | 'farmer' | 'admin'): { status: Ord
     { status: 'funded', label: 'Payment held safely', caption: 'Your money is held by Halal Livestocks — not sent to the farmer yet.' },
     { status: 'preparing', label: 'Farmer accepted', caption: 'The farmer accepted your order. Chat with them to agree on delivery.' },
     { status: 'out_for_delivery', label: 'On the way to you', caption: 'Delivery is being arranged. Use the chat to coordinate with the farmer.' },
-    { status: 'confirmed', label: 'You confirmed receipt', caption: 'You confirmed you received the animals.' },
+    { status: 'confirmed', label: 'You confirmed receipt', caption: 'You confirmed you received the livestock.' },
     { status: 'completed', label: 'Farmer paid', caption: 'The farmer has been paid. Order complete.' },
   ];
 }
