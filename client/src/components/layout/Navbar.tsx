@@ -25,7 +25,7 @@ export function Navbar() {
   const { unreadMessages, unreadNotices } = useNotifications();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const showAlerts = user?.role === 'buyer' || user?.role === 'farmer';
+  const showAlerts = Boolean(user);
   const alertCount = unreadMessages + unreadNotices;
   const bell = showAlerts ? (
     <Link

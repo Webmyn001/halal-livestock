@@ -10,17 +10,20 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { chatService } from '../services/chatService';
 import { orderService } from '../services/orderService';
+import { notificationService } from '../services/notificationService';
 import type { Order, ThreadSummary } from '../types';
 
 export type TransactionTone = 'info' | 'success' | 'warning';
 
 export interface TransactionNotice {
   id: string;
-  orderId: string;
-  orderCode: string;
+  orderId?: string;
+  orderCode?: string;
   title: string;
   body: string;
   tone: TransactionTone;
+  link?: string;
+  createdAt?: string;
 }
 
 interface NotificationsContextValue {
@@ -100,12 +103,12 @@ function readSeen(key: string): string[] {
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const role = user?.role === 'buyer' || user?.role === 'farmer' ? user.role : null;
   const seenKey = user ? `halal.notifications.seen.${user.id}` : '';
 
   const [messages, setMessages] = useState<ThreadSummary[]>([]);
   const [notices, setNotices] = useState<TransactionNotice[]>([]);
   const [seenIds, setSeenIds] = useState<string[]>([]);
+  const [serverUnreadNotices, setServerUnreadNotices] = useState(0);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -113,27 +116,56 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, [seenKey]);
 
   const refresh = useCallback(async () => {
-    if (!role || !user) {
+    if (!user) {
       setMessages([]);
       setNotices([]);
       return;
     }
 
     setLoading(true);
-    const [threadResult, orderResult] = await Promise.allSettled([
-      chatService.threads(),
-      orderService.list({ limit: 50 }),
-    ]);
+    const promises: [
+      Promise<ThreadSummary[] | null>,
+      Promise<{ orders: Order[] } | null>,
+      Promise<{ notifications: any[]; unreadCount: number } | null>
+    ] = [
+      user.role === 'buyer' || user.role === 'farmer' ? chatService.threads().catch(() => null) : Promise.resolve(null),
+      user.role === 'buyer' || user.role === 'farmer' ? orderService.list({ limit: 50 }).catch(() => null) : Promise.resolve(null),
+      notificationService.list().catch(() => null),
+    ];
 
-    if (threadResult.status === 'fulfilled') setMessages(threadResult.value);
-    if (orderResult.status === 'fulfilled') {
-      setNotices(orderResult.value.orders.flatMap((order) => noticesForOrder(order, role)));
+    const [threads, orderData, inApp] = await Promise.all(promises);
+
+    if (threads) setMessages(threads);
+
+    const mergedNotices: TransactionNotice[] = [];
+
+    // Add server in-app notifications (admin broadcasts, user notifications, contact form alerts for admin)
+    if (inApp && inApp.notifications) {
+      setServerUnreadNotices(inApp.unreadCount);
+      inApp.notifications.forEach((item: any) => {
+        mergedNotices.push({
+          id: `app:${item.id}`,
+          title: item.title,
+          body: item.message,
+          tone: item.tone || 'info',
+          link: item.link,
+          createdAt: item.createdAt,
+        });
+      });
     }
+
+    // Add order state notices for buyers and farmers
+    if (orderData && (user.role === 'buyer' || user.role === 'farmer')) {
+      const orderNotices = orderData.orders.flatMap((order) => noticesForOrder(order, user.role as 'buyer' | 'farmer'));
+      mergedNotices.push(...orderNotices);
+    }
+
+    setNotices(mergedNotices);
     setLoading(false);
-  }, [role, user]);
+  }, [user]);
 
   useEffect(() => {
-    if (!role) {
+    if (!user) {
       setMessages([]);
       setNotices([]);
       return;
@@ -155,10 +187,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       window.removeEventListener(MESSAGES_CHANGED, onMessages);
       window.removeEventListener(ORDERS_CHANGED, onOrders);
     };
-  }, [role, refresh]);
+  }, [user, refresh]);
 
   const markNoticesSeen = useCallback(() => {
     if (!seenKey || notices.length === 0) return;
+    notificationService.markRead().catch(() => {});
+    setServerUnreadNotices(0);
     setSeenIds((current) => {
       const merged = Array.from(new Set([...current, ...notices.map((item) => item.id)]));
       if (merged.length === current.length && merged.every((id, index) => id === current[index])) return current;
@@ -169,9 +203,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<NotificationsContextValue>(() => {
     const unreadMessages = messages.reduce((total, thread) => total + thread.unread, 0);
-    const unreadNotices = notices.filter((item) => !seenIds.includes(item.id)).length;
+    const clientUnread = notices.filter((item) => !seenIds.includes(item.id)).length;
+    const unreadNotices = Math.max(clientUnread, serverUnreadNotices);
     return { messages, notices, unreadMessages, unreadNotices, loading, refresh, markNoticesSeen };
-  }, [messages, notices, seenIds, loading, refresh, markNoticesSeen]);
+  }, [messages, notices, seenIds, serverUnreadNotices, loading, refresh, markNoticesSeen]);
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }

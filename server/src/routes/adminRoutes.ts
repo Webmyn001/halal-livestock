@@ -17,6 +17,7 @@ import {
   ruleDispute,
   writeSettings,
 } from '../controllers/adminController';
+import { deleteListing } from '../controllers/listingController';
 import { releaseSettlementSchema, reviewComplaintSchema, reviewKycSchema, settingsSchema } from '../validation/adminSchemas';
 import {
   moderateListingSchema,
@@ -44,6 +45,7 @@ adminRouter.get('/disputes', listAllDisputes);
 adminRouter.post('/disputes/:id/rule', validateBody(resolveDisputeSchema), ruleDispute);
 
 adminRouter.post('/listings/:id/moderate', validateBody(moderateListingSchema), moderateListing);
+adminRouter.delete('/listings/:id', deleteListing);
 
 adminRouter.get('/settings', readSettings);
 adminRouter.put('/settings', validateBody(settingsSchema), writeSettings);

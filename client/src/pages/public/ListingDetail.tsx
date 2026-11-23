@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FaArrowLeftLong, FaLocationDot, FaRegCalendar, FaUserCheck } from 'react-icons/fa6';
 import { Alert } from '../../components/common/Alert';
 import { Button, Spinner } from '../../components/common/Button';
@@ -29,12 +29,28 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 export function ListingDetailPage() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [listing, setListing] = useState<Listing | null>(null);
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [activeImage, setActiveImage] = useState(0);
   const [moderation, setModeration] = useState('');
   const [isModerating, setIsModerating] = useState(false);
+
+  async function handleDeleteListing() {
+    if (!listing) return;
+    if (!window.confirm(`Are you sure you want to permanently delete "${listing.title}"? This cannot be undone.`)) {
+      return;
+    }
+    setIsModerating(true);
+    try {
+      await listingService.delete(listing.id);
+      navigate('/marketplace', { replace: true });
+    } catch (err) {
+      setModeration(err instanceof ApiRequestError ? err.message : 'Could not delete listing.');
+      setIsModerating(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -281,14 +297,17 @@ export function ListingDetailPage() {
                 {moderation ? <Alert tone="error">{moderation}</Alert> : null}
                 <div className="flex flex-wrap gap-2">
                   {listing.status === 'active' ? (
-                    <Button size="sm" variant="danger" isLoading={isModerating} onClick={() => moderate('remove')}>
-                      Take this listing down
+                    <Button size="sm" variant="secondary" isLoading={isModerating} onClick={() => moderate('remove')}>
+                      Take down
                     </Button>
                   ) : (
                     <Button size="sm" variant="secondary" isLoading={isModerating} onClick={() => moderate('restore')}>
                       Put it back up
                     </Button>
                   )}
+                  <Button size="sm" variant="danger" isLoading={isModerating} onClick={handleDeleteListing}>
+                    Delete listing
+                  </Button>
                 </div>
               </div>
             ) : null}

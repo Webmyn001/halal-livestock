@@ -3,13 +3,14 @@ import rateLimit from 'express-rate-limit';
 import {
   addListingPhotos,
   createListing,
+  deleteListing,
   getListing,
   listListings,
   listMyListings,
   removeListingPhoto,
   updateListing,
 } from '../controllers/listingController';
-import { requireRole, attachUserIfPresent } from '../middleware/auth';
+import { requireRole, attachUserIfPresent, verifyToken } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { imageUpload, MAX_IMAGE_FILES } from '../services/imageStore';
 import { createListingSchema, updateListingSchema } from '../validation/listingSchemas';
@@ -44,7 +45,8 @@ listingRouter.post(
   createListing
 );
 
-listingRouter.patch('/:id', requireRole('farmer'), writeLimiter, validateBody(updateListingSchema), updateListing);
+listingRouter.patch('/:id', verifyToken, writeLimiter, validateBody(updateListingSchema), updateListing);
+listingRouter.delete('/:id', verifyToken, writeLimiter, deleteListing);
 
 listingRouter.post(
   '/:id/photos',

@@ -6,7 +6,8 @@ import { Input } from '../../components/common/Input';
 import { Textarea } from '../../components/common/Textarea';
 import { ApiRequestError } from '../../services/apiClient';
 import { adminService, type ComplaintWithContact, type KycQueueEntry } from '../../services/adminService';
-import type { AdminCounts, Dispute, Order, PlatformInfo, Settlement } from '../../types';
+import { notificationService } from '../../services/notificationService';
+import type { AdminCounts, Dispute, Order, PlatformInfo, Settlement, User } from '../../types';
 import { CATEGORY_LABELS, STATUS_LABELS as COMPLAINT_STATUS_LABELS } from '../../utils/complaintMeta';
 import { formatDate, formatDateTime, formatNaira } from '../../utils/format';
 import { UNIT_LABELS } from '../../utils/listingMeta';
@@ -19,7 +20,7 @@ import {
   disputeStatusLabel,
 } from '../../utils/orderMeta';
 
-const TABS = ['Overview', 'Orders', 'Payouts', 'Cases', 'Farms', 'Complaints', 'Settings'] as const;
+const TABS = ['Overview', 'Orders', 'Payouts', 'Cases', 'Farms', 'Complaints', 'Send Message', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
 
 export function AdminConsolePage() {
@@ -59,6 +60,7 @@ export function AdminConsolePage() {
         {tab === 'Cases' ? <CasesTab /> : null}
         {tab === 'Farms' ? <FarmsTab /> : null}
         {tab === 'Complaints' ? <ComplaintsTab /> : null}
+        {tab === 'Send Message' ? <MessagesTab /> : null}
         {tab === 'Settings' ? <SettingsTab /> : null}
       </div>
     </div>
@@ -849,5 +851,256 @@ function SettingsTab() {
         Save settings
       </Button>
     </form>
+  );
+}
+
+function MessagesTab() {
+  const [target, setTarget] = useState<'user' | 'role' | 'all'>('role');
+  const [role, setRole] = useState<'buyer' | 'farmer' | 'all'>('buyer');
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userSearch, setUserSearch] = useState('');
+  const [userResults, setUserResults] = useState<User[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
+  const [tone, setTone] = useState<'info' | 'warning' | 'success'>('info');
+  const [link, setLink] = useState('');
+
+  const [isSending, setIsSending] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (target !== 'user') return;
+    const q = userSearch.trim();
+    if (q.length < 2) {
+      setUserResults([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    adminService
+      .users({ q })
+      .then((users) => {
+        if (!cancelled) setUserResults(users);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setSearching(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userSearch, target]);
+
+  async function handleSend(e: FormEvent) {
+    e.preventDefault();
+    setFeedback(null);
+
+    if (!title.trim() || !message.trim()) {
+      setFeedback({ type: 'error', text: 'Please fill in both the title and message.' });
+      return;
+    }
+
+    if (target === 'user' && !selectedUser) {
+      setFeedback({ type: 'error', text: 'Please select a recipient user from the search results.' });
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const res = await notificationService.adminSend({
+        target,
+        userId: target === 'user' ? selectedUser?.id : undefined,
+        role: target === 'role' ? role : undefined,
+        title: title.trim(),
+        message: message.trim(),
+        tone,
+        link: link.trim() || undefined,
+      });
+
+      setFeedback({
+        type: 'success',
+        text: res.message || 'Notification and email sent successfully!',
+      });
+      setTitle('');
+      setMessage('');
+      setLink('');
+      setSelectedUser(null);
+      setUserSearch('');
+    } catch (err) {
+      setFeedback({
+        type: 'error',
+        text: err instanceof ApiRequestError ? err.message : 'Failed to send message.',
+      });
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-8">
+        <div>
+          <h2 className="font-display text-xl font-bold text-ink-900">Message Users (Alarm Notification & Email)</h2>
+          <p className="mt-1 text-sm text-ink-500">
+            Send an important announcement or direct communication to buyers, farmers, or a specific user.
+            This immediately rings their in-app notification bell and dispatches an email to their registered address.
+          </p>
+        </div>
+
+        {feedback ? (
+          <div className="mt-5">
+            <Alert tone={feedback.type === 'success' ? 'success' : 'error'}>
+              {feedback.text}
+            </Alert>
+          </div>
+        ) : null}
+
+        <form onSubmit={handleSend} className="mt-6 space-y-6">
+          <div>
+            <label className="block text-sm font-semibold text-ink-900 mb-2">Recipient</label>
+            <div className="flex flex-wrap gap-3">
+              {[
+                { id: 'role', label: 'By User Group (Buyers / Farmers)' },
+                { id: 'user', label: 'Specific User (Search by Name/Email)' },
+                { id: 'all', label: 'Everyone on Platform' },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    setTarget(opt.id as any);
+                    setSelectedUser(null);
+                  }}
+                  className={`rounded-xl px-4 py-2.5 text-xs font-semibold ring-1 ring-inset transition ${
+                    target === opt.id
+                      ? 'bg-brand-900 text-white ring-brand-900 shadow-sm'
+                      : 'bg-white text-ink-700 ring-stone-200 hover:bg-stone-50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {target === 'role' ? (
+            <div>
+              <label htmlFor="roleSelect" className="block text-sm font-medium text-ink-700">
+                Select Group
+              </label>
+              <select
+                id="roleSelect"
+                value={role}
+                onChange={(e) => setRole(e.target.value as any)}
+                className="mt-1.5 w-full max-w-xs rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/12"
+              >
+                <option value="buyer">All Buyers</option>
+                <option value="farmer">All Farmers</option>
+              </select>
+            </div>
+          ) : null}
+
+          {target === 'user' ? (
+            <div className="space-y-3">
+              <Input
+                label="Search Buyer or Farmer"
+                value={userSearch}
+                onChange={(e) => setUserSearch(e.target.value)}
+                placeholder="Type full name, email or phone number…"
+                hint="Start typing to see matching accounts"
+              />
+              {searching ? <p className="text-xs text-ink-500">Searching accounts…</p> : null}
+              {selectedUser ? (
+                <div className="flex items-center justify-between rounded-xl bg-brand-50 p-3.5 ring-1 ring-brand-200">
+                  <div>
+                    <p className="text-sm font-semibold text-brand-900">{selectedUser.fullName}</p>
+                    <p className="text-xs text-brand-700">{selectedUser.email} · {selectedUser.phoneNumber} · Role: {selectedUser.role}</p>
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedUser(null)}>
+                    Change
+                  </Button>
+                </div>
+              ) : userResults.length > 0 ? (
+                <ul className="max-h-48 overflow-y-auto divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white shadow-sm">
+                  {userResults.map((u) => (
+                    <li
+                      key={u.id}
+                      onClick={() => {
+                        setSelectedUser(u);
+                        setUserResults([]);
+                      }}
+                      className="cursor-pointer px-4 py-2.5 text-sm hover:bg-stone-50 flex items-center justify-between"
+                    >
+                      <div>
+                        <span className="font-semibold text-ink-900">{u.fullName}</span>
+                        <span className="ml-2 text-xs text-ink-500">({u.email})</span>
+                      </div>
+                      <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold uppercase text-ink-600">
+                        {u.role}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : userSearch.length >= 2 && !searching ? (
+                <p className="text-xs text-ink-500">No user found matching that search.</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          <Input
+            label="Subject / Notification Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Important notice regarding holiday deliveries"
+            required
+            maxLength={150}
+          />
+
+          <Textarea
+            label="Message Body"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={5}
+            placeholder="Write the message here. This will be sent as an in-app alarm alert and formatted email."
+            required
+            maxLength={2000}
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="toneSelect" className="block text-sm font-medium text-ink-700">
+                Notice Tone
+              </label>
+              <select
+                id="toneSelect"
+                value={tone}
+                onChange={(e) => setTone(e.target.value as any)}
+                className="mt-1.5 w-full rounded-xl border border-stone-300 bg-white px-3.5 py-2.5 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/12"
+              >
+                <option value="info">Information (Standard Blue)</option>
+                <option value="warning">Important / Warning (Amber Notice)</option>
+                <option value="success">Success / Good News (Green Notice)</option>
+              </select>
+            </div>
+
+            <Input
+              label="Action Link (Optional)"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="e.g. /marketplace or /orders"
+              hint="Link users will open when clicking the alert."
+            />
+          </div>
+
+          <div className="pt-2 flex items-center justify-end">
+            <Button type="submit" size="lg" isLoading={isSending}>
+              Send Notification & Email
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

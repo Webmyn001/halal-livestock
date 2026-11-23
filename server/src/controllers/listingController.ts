@@ -169,7 +169,14 @@ export async function getListing(req: Request, res: Response): Promise<void> {
 
 export async function updateListing(req: Request, res: Response): Promise<void> {
   const input = req.body as UpdateListingInput;
-  const listing = await findOwnedListing(req);
+  const listing = await Listing.findById(req.params.id);
+  if (!listing) throw ApiError.notFound('That listing no longer exists');
+
+  const isOwner = ownerIdOf(listing) === req.user!.userId;
+  const isAdmin = req.user!.role === 'admin';
+  if (!isOwner && !isAdmin) {
+    throw ApiError.forbidden('You do not have permission to edit this listing');
+  }
 
   if (input.title !== undefined) listing.title = input.title;
   if (input.description !== undefined) listing.description = input.description;
@@ -182,14 +189,46 @@ export async function updateListing(req: Request, res: Response): Promise<void> 
   if (input.town !== undefined) listing.town = input.town;
   if (input.state !== undefined) listing.state = input.state;
 
-  if (input.status !== undefined && input.status !== listing.status) {
-    listing.status = input.status;
-    listing.soldAt = input.status === 'sold' ? new Date() : undefined;
+  if (input.status !== undefined) {
+    if (input.status === 'active') {
+      if (listing.quantity <= 0 && (input.quantity === undefined || input.quantity <= 0)) {
+        throw ApiError.badRequest('Please set a quantity of at least 1 before putting this listing back on sale.');
+      }
+      listing.status = 'active';
+      listing.soldAt = undefined;
+    } else {
+      listing.status = input.status;
+      listing.soldAt = input.status === 'sold' ? new Date() : undefined;
+    }
+  } else if (listing.status === 'sold' && input.quantity !== undefined && input.quantity > 0) {
+    listing.status = 'active';
+    listing.soldAt = undefined;
   }
 
   await listing.save();
   await listing.populate('farmerId', FARMER_FIELDS);
   sendSuccess(res, { listing: toPublicListing(listing, req.user!.userId) });
+}
+
+export async function deleteListing(req: Request, res: Response): Promise<void> {
+  const listing = await Listing.findById(req.params.id);
+  if (!listing) throw ApiError.notFound('That listing no longer exists');
+
+  const isOwner = ownerIdOf(listing) === req.user!.userId;
+  const isAdmin = req.user!.role === 'admin';
+  if (!isOwner && !isAdmin) {
+    throw ApiError.forbidden('You do not have permission to delete this listing');
+  }
+
+  // Delete images from cloud storage in background
+  const folder = listingFolder(ownerIdOf(listing));
+  Promise.allSettled(listing.images.map((image) => deleteImage(image.publicId, folder))).catch((err) => {
+    logger.error('Failed to clean up images for deleted listing', { error: err });
+  });
+
+  await Listing.deleteOne({ _id: listing._id });
+  logger.info('Listing deleted', { listingId: listing.id, deletedBy: req.user!.userId, role: req.user!.role });
+  sendSuccess(res, { success: true, message: 'Listing permanently deleted' });
 }
 
 export async function addListingPhotos(req: Request, res: Response): Promise<void> {

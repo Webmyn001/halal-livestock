@@ -99,4 +99,11 @@ export const listingService = {
       })
     );
   },
+
+  async delete(id: string): Promise<void> {
+    await request<{ success: boolean }>({
+      method: 'DELETE',
+      url: `/listings/${id}`,
+    });
+  },
 };

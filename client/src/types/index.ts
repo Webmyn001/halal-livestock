@@ -175,6 +175,16 @@ export interface ListingPatch {
   status?: ListingStatus;
 }
 
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  tone: 'info' | 'success' | 'warning';
+  link?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export const ORDER_STATUSES = [
   'awaiting_payment',
   'funded',

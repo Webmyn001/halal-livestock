@@ -85,6 +85,10 @@ export const adminService = {
     await request<{ listing: unknown }>({ method: 'POST', url: `/admin/listings/${id}/moderate`, data: { action, reason } });
   },
 
+  async deleteListing(id: string): Promise<void> {
+    await request<{ success: boolean }>({ method: 'DELETE', url: `/admin/listings/${id}` });
+  },
+
   async users(params: { role?: string; q?: string }): Promise<User[]> {
     const data = await request<{ users: User[] }>({ method: 'GET', url: '/admin/users', params });
     return data.users;

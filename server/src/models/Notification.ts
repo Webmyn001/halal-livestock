@@ -1,0 +1,55 @@
+import { Schema, model, type HydratedDocument } from 'mongoose';
+
+export type NotificationTone = 'info' | 'success' | 'warning';
+export type NotificationRole = 'buyer' | 'farmer' | 'admin' | 'all';
+
+export interface INotification {
+  userId?: string;
+  recipientRole?: NotificationRole;
+  title: string;
+  message: string;
+  tone: NotificationTone;
+  link?: string;
+  isRead: boolean;
+  readBy: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type NotificationDoc = HydratedDocument<INotification>;
+
+const notificationSchema = new Schema<INotification>(
+  {
+    userId: { type: String, index: true },
+    recipientRole: { type: String, enum: ['buyer', 'farmer', 'admin', 'all'], index: true },
+    title: { type: String, required: true, trim: true, maxlength: 150 },
+    message: { type: String, required: true, trim: true, maxlength: 2000 },
+    tone: { type: String, enum: ['info', 'success', 'warning'], default: 'info' },
+    link: { type: String, trim: true },
+    isRead: { type: Boolean, default: false, index: true },
+    readBy: { type: [String], default: [] },
+  },
+  { timestamps: true }
+);
+
+notificationSchema.index({ createdAt: -1 });
+
+export const Notification = model<INotification>('Notification', notificationSchema);
+
+export function toPublicNotification(doc: NotificationDoc, currentUserId?: string) {
+  const isRead = doc.userId
+    ? doc.isRead
+    : currentUserId
+      ? doc.readBy.includes(currentUserId)
+      : doc.isRead;
+
+  return {
+    id: String(doc._id),
+    title: doc.title,
+    message: doc.message,
+    tone: doc.tone,
+    link: doc.link,
+    isRead,
+    createdAt: doc.createdAt.toISOString(),
+  };
+}

@@ -81,27 +81,41 @@ export function NotificationsPage() {
         </section>
 
         <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
-          <h2 className="font-display text-base font-semibold text-ink-900">Transactions</h2>
-          <p className="mt-1 text-xs text-ink-500">Payment, delivery and case updates from your orders.</p>
+          <h2 className="font-display text-base font-semibold text-ink-900">Updates & Notifications</h2>
+          <p className="mt-1 text-xs text-ink-500">Order updates, admin messages, and contact alerts.</p>
 
           {loading && notices.length === 0 ? (
             <p className="mt-5 text-sm text-ink-500">Loading updates…</p>
           ) : notices.length === 0 ? (
-            <p className="mt-5 text-sm leading-relaxed text-ink-500">No transaction updates yet.</p>
+            <p className="mt-5 text-sm leading-relaxed text-ink-500">No updates or notifications yet.</p>
           ) : (
             <ul className="mt-5 space-y-3">
-              {notices.map((item) => (
-                <li key={item.id}>
-                  <Link
-                    to={`/orders/${item.orderId}`}
-                    className={`block rounded-xl border px-4 py-3.5 transition hover:brightness-[0.98] ${TONE_STYLES[item.tone]}`}
-                  >
+              {notices.map((item) => {
+                const targetUrl = item.link || (item.orderId ? `/orders/${item.orderId}` : null);
+                const content = (
+                  <div className={`rounded-xl border px-4 py-3.5 transition hover:brightness-[0.98] ${TONE_STYLES[item.tone]}`}>
                     <p className="text-sm font-semibold">{item.title}</p>
                     <p className="mt-1 text-xs leading-relaxed opacity-90">{item.body}</p>
-                    <p className="mt-2 text-[11px] font-medium underline">Open order {item.orderCode}</p>
-                  </Link>
-                </li>
-              ))}
+                    {item.orderCode ? (
+                      <p className="mt-2 text-[11px] font-medium underline">Open order {item.orderCode}</p>
+                    ) : item.link ? (
+                      <p className="mt-2 text-[11px] font-medium underline">View details →</p>
+                    ) : null}
+                  </div>
+                );
+
+                return (
+                  <li key={item.id}>
+                    {targetUrl ? (
+                      <Link to={targetUrl} className="block">
+                        {content}
+                      </Link>
+                    ) : (
+                      content
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

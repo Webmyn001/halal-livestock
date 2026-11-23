@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { FaPlus, FaXmark } from 'react-icons/fa6';
+import { FaPlus, FaXmark, FaPenToSquare, FaTrashCan } from 'react-icons/fa6';
 import { Alert } from '../../components/common/Alert';
 import { Button, Spinner } from '../../components/common/Button';
 import { ApiRequestError } from '../../services/apiClient';
@@ -15,12 +15,15 @@ import {
 import type { Listing, ListingStatus } from '../../types';
 import { formatNaira } from '../../utils/format';
 import { SPECIES_LABELS, STATUS_LABELS, STATUS_STYLES, UNIT_LABELS } from '../../utils/listingMeta';
+import { EditListingModal } from './EditListingModal';
 
 export function MyListings() {
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [problem, setProblem] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingListing, setEditingListing] = useState<Listing | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const replace = useCallback((next: Listing) => {
     setListings((current) => (current ?? []).map((listing) => (listing.id === next.id ? next : listing)));
@@ -52,6 +55,27 @@ export function MyListings() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function handleDelete(listing: Listing) {
+    if (!window.confirm(`Are you sure you want to permanently delete "${listing.title}"? This cannot be undone.`)) {
+      return;
+    }
+    setBusyId(listing.id);
+    setProblem('');
+    try {
+      await listingService.delete(listing.id);
+      setListings((current) => (current ?? []).filter((item) => item.id !== listing.id));
+    } catch (err) {
+      setProblem(err instanceof ApiRequestError ? err.message : 'Could not delete that listing.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  function openEdit(listing: Listing) {
+    setEditingListing(listing);
+    setIsEditOpen(true);
   }
 
   async function removePhoto(listing: Listing, publicId: string) {
@@ -191,9 +215,19 @@ export function MyListings() {
                     </div>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={isBusy}
+                        onClick={() => openEdit(listing)}
+                      >
+                        <FaPenToSquare aria-hidden="true" className="mr-1 size-3" />
+                        Edit
+                      </Button>
+
                       {listing.status === 'active' ? (
                         <>
-                          <Button size="sm" variant="secondary" disabled={isBusy} onClick={() => setStatus(listing, 'sold')}>
+                          <Button size="sm" variant="ghost" disabled={isBusy} onClick={() => setStatus(listing, 'sold')}>
                             Mark sold
                           </Button>
                           <Button size="sm" variant="ghost" disabled={isBusy} onClick={() => setStatus(listing, 'removed')}>
@@ -205,20 +239,38 @@ export function MyListings() {
                           <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">
                             ⏳ Order in progress with buyer
                           </span>
-                          <Button size="sm" variant="secondary" disabled={isBusy} onClick={() => setStatus(listing, 'sold')}>
+                          <Button size="sm" variant="ghost" disabled={isBusy} onClick={() => setStatus(listing, 'sold')}>
                             Mark sold
                           </Button>
                         </>
                       ) : (
-                        <Button size="sm" variant="secondary" disabled={isBusy} onClick={() => setStatus(listing, 'active')}>
-                          {listing.status === 'sold' ? 'List again' : 'Put it back up'}
+                        <Button
+                          size="sm"
+                          variant={listing.status === 'sold' ? 'gold' : 'secondary'}
+                          disabled={isBusy}
+                          onClick={() => openEdit(listing)}
+                        >
+                          {listing.status === 'sold' ? 'Got new stock / Put on sale' : 'Put it back up'}
                         </Button>
                       )}
+
                       <Link to={`/marketplace/${listing.id}`}>
                         <Button size="sm" variant="ghost">
-                          View as a buyer
+                          View
                         </Button>
                       </Link>
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-red-700 hover:bg-red-50 hover:text-red-800"
+                        disabled={isBusy}
+                        onClick={() => handleDelete(listing)}
+                      >
+                        <FaTrashCan aria-hidden="true" className="mr-1 size-3 text-red-600" />
+                        Delete
+                      </Button>
+
                       {isBusy ? <Spinner className="size-4 text-brand-600" /> : null}
                     </div>
 
@@ -271,6 +323,16 @@ export function MyListings() {
           })}
         </ul>
       )}
+
+      <EditListingModal
+        listing={editingListing}
+        isOpen={isEditOpen}
+        onClose={() => {
+          setIsEditOpen(false);
+          setEditingListing(null);
+        }}
+        onSaved={replace}
+      />
     </section>
   );
 }
