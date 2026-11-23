@@ -5,6 +5,7 @@ import { env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { apiRouter } from './routes';
 import { LOCAL_UPLOAD_ROOT } from './services/imageStore';
+import { handleListingSocialPreview } from './controllers/previewController';
 
 export function createApp() {
   const app = express();
@@ -39,6 +40,9 @@ export function createApp() {
   if (env.STORAGE_PROVIDER === 'local') {
     app.use('/uploads', express.static(LOCAL_UPLOAD_ROOT, { index: false, dotfiles: 'deny', maxAge: '1h' }));
   }
+
+  // Social media link preview (Open Graph / WhatsApp / Facebook / Twitter cards)
+  app.get(['/marketplace/:id', '/share/listings/:id', '/listings/:id/preview'], handleListingSocialPreview);
 
   app.use('/api/v1', apiRouter);
 

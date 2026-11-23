@@ -164,6 +164,13 @@ export async function getListing(req: Request, res: Response): Promise<void> {
     throw ApiError.notFound('That listing no longer exists');
   }
 
+  // Increment view count if not the owner viewing it
+  const isOwner = req.user?.userId && ownerIdOf(listing) === req.user.userId;
+  if (!isOwner) {
+    listing.views = (listing.views ?? 0) + 1;
+    await Listing.updateOne({ _id: listing._id }, { $inc: { views: 1 } });
+  }
+
   sendSuccess(res, { listing: toPublicListing(listing, req.user?.userId) });
 }
 

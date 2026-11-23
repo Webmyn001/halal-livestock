@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { FaPlus, FaXmark, FaPenToSquare, FaTrashCan } from 'react-icons/fa6';
+import { FaPlus, FaXmark, FaPenToSquare, FaTrashCan, FaEye, FaShareNodes, FaCheck } from 'react-icons/fa6';
 import { Alert } from '../../components/common/Alert';
 import { Button, Spinner } from '../../components/common/Button';
 import { ApiRequestError } from '../../services/apiClient';
@@ -24,6 +24,33 @@ export function MyListings() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editingListing, setEditingListing] = useState<Listing | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [sharedId, setSharedId] = useState<string | null>(null);
+
+  async function handleShare(listing: Listing) {
+    const shareUrl = `${window.location.origin}/marketplace/${listing.id}`;
+    const shareData = {
+      title: `${listing.title} — Halal Livestocks`,
+      text: `Check out ${listing.title} on Halal Livestocks: ${formatNaira(listing.priceKobo)} per ${UNIT_LABELS[listing.unit]}`,
+      url: shareUrl,
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // Fallback
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setSharedId(listing.id);
+      setTimeout(() => setSharedId(null), 3000);
+    } catch {
+      // Fallback
+    }
+  }
 
   const replace = useCallback((next: Listing) => {
     setListings((current) => (current ?? []).map((listing) => (listing.id === next.id ? next : listing)));
@@ -206,6 +233,10 @@ export function MyListings() {
                         <p className="mt-1 text-sm text-ink-700">
                           {formatNaira(listing.priceKobo)} per {UNIT_LABELS[listing.unit]} · {listing.quantity} available
                         </p>
+                        <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-ink-500">
+                          <FaEye className="size-3 text-stone-400" />
+                          <span className="font-semibold text-ink-700">{listing.views ?? 0}</span> {(listing.views ?? 0) === 1 ? 'view' : 'views'}
+                        </p>
                       </div>
                       <span
                         className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset ${STATUS_STYLES[listing.status]}`}
@@ -259,6 +290,25 @@ export function MyListings() {
                           View
                         </Button>
                       </Link>
+
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleShare(listing)}
+                        title="Copy link to share on WhatsApp or social media"
+                      >
+                        {sharedId === listing.id ? (
+                          <>
+                            <FaCheck aria-hidden="true" className="mr-1 size-3 text-emerald-600" />
+                            <span className="text-emerald-700">Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <FaShareNodes aria-hidden="true" className="mr-1 size-3 text-stone-500" />
+                            Share
+                          </>
+                        )}
+                      </Button>
 
                       <Button
                         size="sm"

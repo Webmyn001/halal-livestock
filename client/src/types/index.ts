@@ -128,6 +128,7 @@ export interface Listing {
   state: string;
   status: ListingStatus;
   soldAt?: string | null;
+  views?: number;
   createdAt: string;
   images: ListingImage[];
   farmer: { id: string; fullName: string; isVerified: boolean } | null;

@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { FaArrowLeftLong, FaLocationDot, FaRegCalendar, FaUserCheck } from 'react-icons/fa6';
+import {
+  FaArrowLeftLong,
+  FaLocationDot,
+  FaRegCalendar,
+  FaUserCheck,
+  FaEye,
+  FaShareNodes,
+  FaCheck,
+} from 'react-icons/fa6';
 import { Alert } from '../../components/common/Alert';
 import { Button, Spinner } from '../../components/common/Button';
 import { OrderPanel } from '../../components/marketplace/OrderPanel';
@@ -36,6 +44,70 @@ export function ListingDetailPage() {
   const [activeImage, setActiveImage] = useState(0);
   const [moderation, setModeration] = useState('');
   const [isModerating, setIsModerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Set Open Graph & Twitter meta tags for social media previews
+  useEffect(() => {
+    if (!listing) return;
+
+    document.title = `${listing.title} — ${formatNaira(listing.priceKobo)} | Halal Livestocks`;
+
+    const setMeta = (nameOrProperty: string, content: string) => {
+      let tag = document.querySelector(`meta[property="${nameOrProperty}"]`) || document.querySelector(`meta[name="${nameOrProperty}"]`);
+      if (!tag) {
+        tag = document.createElement('meta');
+        if (nameOrProperty.startsWith('og:')) {
+          tag.setAttribute('property', nameOrProperty);
+        } else {
+          tag.setAttribute('name', nameOrProperty);
+        }
+        document.head.appendChild(tag);
+      }
+      tag.setAttribute('content', content);
+    };
+
+    const firstImg = listing.images[0]?.url || `${window.location.origin}/favicon.png`;
+    const desc = `${formatNaira(listing.priceKobo)} per ${UNIT_LABELS[listing.unit]} in ${listing.town}, ${listing.state}. ${listing.description.slice(0, 160)}`;
+
+    setMeta('og:type', 'product');
+    setMeta('og:site_name', 'Halal Livestocks Marketplace');
+    setMeta('og:title', `${listing.title} — ${formatNaira(listing.priceKobo)}`);
+    setMeta('og:description', desc);
+    setMeta('og:image', firstImg);
+    setMeta('og:image:secure_url', firstImg);
+    setMeta('og:url', window.location.href);
+    setMeta('twitter:card', 'summary_large_image');
+    setMeta('twitter:title', `${listing.title} — ${formatNaira(listing.priceKobo)}`);
+    setMeta('twitter:description', desc);
+    setMeta('twitter:image', firstImg);
+  }, [listing]);
+
+  async function handleShare() {
+    if (!listing) return;
+    const shareUrl = window.location.href;
+    const shareData = {
+      title: `${listing.title} — Halal Livestocks`,
+      text: `Check out ${listing.title} on Halal Livestocks Marketplace: ${formatNaira(listing.priceKobo)} per ${UNIT_LABELS[listing.unit]}`,
+      url: shareUrl,
+    };
+
+    if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // Fallback to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch {
+      // Ignore
+    }
+  }
 
   async function handleDeleteListing() {
     if (!listing) return;
@@ -282,6 +354,30 @@ export function ListingDetailPage() {
                 <FaRegCalendar aria-hidden="true" className="size-3.5 text-stone-400" />
                 Posted {formatDate(listing.createdAt)}
               </p>
+              <p className="inline-flex items-center gap-2 text-ink-600">
+                <FaEye aria-hidden="true" className="size-3.5 text-stone-400" />
+                <span className="font-semibold text-ink-900">{listing.views ?? 0}</span> {(listing.views ?? 0) === 1 ? 'view' : 'views'}
+              </p>
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={handleShare}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-stone-50/80 px-3.5 py-2 text-xs font-semibold text-ink-700 transition hover:bg-stone-100 hover:text-brand-700 shadow-xs"
+              >
+                {copied ? (
+                  <>
+                    <FaCheck aria-hidden="true" className="size-3.5 text-emerald-600" />
+                    <span className="text-emerald-700">Link copied! Ready to share on WhatsApp</span>
+                  </>
+                ) : (
+                  <>
+                    <FaShareNodes aria-hidden="true" className="size-3.5 text-stone-500" />
+                    <span>Share listing on WhatsApp & Socials</span>
+                  </>
+                )}
+              </button>
             </div>
 
             <div className="mt-6 space-y-4">

@@ -37,6 +37,7 @@ export interface IListing {
   images: IListingImage[];
   status: ListingStatus;
   soldAt?: Date;
+  views: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -69,6 +70,7 @@ const listingSchema = new Schema<IListing>(
     images: { type: [imageSchema], required: true, validate: [(v: IListingImage[]) => v.length > 0, 'A listing needs at least one photo'] },
     status: { type: String, enum: LISTING_STATUSES, default: 'active', index: true },
     soldAt: Date,
+    views: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true }
 );
@@ -98,6 +100,7 @@ export function toPublicListing(listing: ListingDoc, viewerId?: string) {
     state: listing.state,
     status: listing.status,
     soldAt: listing.soldAt,
+    views: listing.views ?? 0,
     createdAt: listing.createdAt,
     images: listing.images.map((image) => ({
       url: image.url,
