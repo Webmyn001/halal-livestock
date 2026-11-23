@@ -17,6 +17,7 @@ import {
   type ListingUnit,
   type NewListingPayload,
 } from '../../types';
+import { listingPath } from '../../utils/listingUrl';
 import { LISTING_TYPE_SHORT, SPECIES_LABELS, UNIT_LABELS } from '../../utils/listingMeta';
 
 function Choice({
@@ -88,7 +89,7 @@ export function PostLivestockPage() {
     setIsSaving(true);
     try {
       const listing = await listingService.create(payload, files);
-      navigate(`/marketplace/${listing.id}`, { replace: true });
+      navigate(listingPath(listing), { replace: true });
     } catch (err) {
       setError(
         err instanceof ApiRequestError ? err : new ApiRequestError('The listing was not saved', 'UNKNOWN')

@@ -13,6 +13,7 @@ import { orderService } from '../services/orderService';
 import type { Order } from '../types';
 import { formatDateTime, formatNaira } from '../utils/format';
 import { LISTING_TYPE_LABELS, SPECIES_LABELS, UNIT_LABELS } from '../utils/listingMeta';
+import { listingPath } from '../utils/listingUrl';
 import { ORDER_STATUS_LABELS, orderStatusStyle } from '../utils/orderMeta';
 
 /** Statuses where a buyer can report non-receipt */
@@ -412,7 +413,10 @@ export function OrderDetailPage() {
                 <dd className="font-medium">{order.snapshot.town}, {order.snapshot.state}</dd>
               </div>
             </dl>
-            <Link to={`/marketplace/${order.listingId}`} className="mt-4 inline-block text-sm font-medium text-brand-700">
+            <Link
+              to={listingPath({ id: order.listingId, title: order.snapshot.title, species: order.snapshot.species, town: order.snapshot.town, state: order.snapshot.state })}
+              className="mt-4 inline-block text-sm font-medium text-brand-700"
+            >
               View original listing
             </Link>
           </div>

@@ -14,6 +14,7 @@ import {
 } from '../../services/listingService';
 import type { Listing, ListingStatus } from '../../types';
 import { formatNaira } from '../../utils/format';
+import { listingPath } from '../../utils/listingUrl';
 import { SPECIES_LABELS, STATUS_LABELS, STATUS_STYLES, UNIT_LABELS } from '../../utils/listingMeta';
 import { EditListingModal } from './EditListingModal';
 
@@ -27,7 +28,7 @@ export function MyListings() {
   const [sharedId, setSharedId] = useState<string | null>(null);
 
   async function handleShare(listing: Listing) {
-    const shareUrl = `${window.location.origin}/marketplace/${listing.id}`;
+    const shareUrl = `${window.location.origin}${listingPath(listing)}`;
     const shareData = {
       title: `${listing.title} — Halal Livestocks`,
       text: `Check out ${listing.title} on Halal Livestocks: ${formatNaira(listing.priceKobo)} per ${UNIT_LABELS[listing.unit]}`,
@@ -215,7 +216,7 @@ export function MyListings() {
               >
                 <div className="flex flex-wrap gap-4 sm:flex-nowrap">
                   <Link
-                    to={`/marketplace/${listing.id}`}
+                    to={listingPath(listing)}
                     className="size-24 shrink-0 overflow-hidden rounded-xl bg-stone-100 ring-1 ring-stone-200"
                   >
                     {cover ? (
@@ -285,7 +286,7 @@ export function MyListings() {
                         </Button>
                       )}
 
-                      <Link to={`/marketplace/${listing.id}`}>
+                      <Link to={listingPath(listing)}>
                         <Button size="sm" variant="ghost">
                           View
                         </Button>

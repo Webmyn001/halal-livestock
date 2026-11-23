@@ -24,6 +24,7 @@ import {
   type CreateListingInput,
   type UpdateListingInput,
 } from '../validation/listingSchemas';
+import { listingIdFromParam } from '../utils/listingId';
 
 const MEGABYTE = 1024 * 1024;
 const FARMER_FIELDS = 'fullName farmerProfile.status';
@@ -66,8 +67,14 @@ function ownerIdOf(listing: ListingDoc): string {
     : String(ref ?? '');
 }
 
+function listingId(req: Request): string {
+  const raw = req.params.id;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return listingIdFromParam(value ?? '');
+}
+
 async function findOwnedListing(req: Request): Promise<ListingDoc> {
-  const listing = await Listing.findById(req.params.id);
+  const listing = await Listing.findById(listingId(req));
   if (!listing) throw ApiError.notFound('That listing no longer exists');
   if (ownerIdOf(listing) !== req.user!.userId) {
     throw ApiError.forbidden('You can only change your own listings');
@@ -156,7 +163,7 @@ export async function listMyListings(req: Request, res: Response): Promise<void>
 }
 
 export async function getListing(req: Request, res: Response): Promise<void> {
-  const listing = await Listing.findById(req.params.id).populate('farmerId', FARMER_FIELDS);
+  const listing = await Listing.findById(listingId(req)).populate('farmerId', FARMER_FIELDS);
   if (!listing) throw ApiError.notFound('That listing no longer exists');
 
   // A listing that has been taken down stays visible to the farmer who posted it.
@@ -176,7 +183,7 @@ export async function getListing(req: Request, res: Response): Promise<void> {
 
 export async function updateListing(req: Request, res: Response): Promise<void> {
   const input = req.body as UpdateListingInput;
-  const listing = await Listing.findById(req.params.id);
+  const listing = await Listing.findById(listingId(req));
   if (!listing) throw ApiError.notFound('That listing no longer exists');
 
   const isOwner = ownerIdOf(listing) === req.user!.userId;
@@ -218,7 +225,7 @@ export async function updateListing(req: Request, res: Response): Promise<void> 
 }
 
 export async function deleteListing(req: Request, res: Response): Promise<void> {
-  const listing = await Listing.findById(req.params.id);
+  const listing = await Listing.findById(listingId(req));
   if (!listing) throw ApiError.notFound('That listing no longer exists');
 
   const isOwner = ownerIdOf(listing) === req.user!.userId;

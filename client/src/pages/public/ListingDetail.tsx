@@ -18,6 +18,7 @@ import { ApiRequestError } from '../../services/apiClient';
 import { listingService } from '../../services/listingService';
 import type { Listing } from '../../types';
 import { formatDate, formatNaira } from '../../utils/format';
+import { listingIdFromParam, listingPath } from '../../utils/listingUrl';
 import { LISTING_TYPE_LABELS, SPECIES_LABELS, UNIT_LABELS } from '../../utils/listingMeta';
 
 const PROTECTION = [
@@ -36,7 +37,8 @@ function Fact({ label, value }: { label: string; value: string }) {
 }
 
 export function ListingDetailPage() {
-  const { id = '' } = useParams();
+  const { id: rawId = '' } = useParams();
+  const id = listingIdFromParam(rawId);
   const navigate = useNavigate();
   const { user } = useAuth();
   const [listing, setListing] = useState<Listing | null>(null);
@@ -45,6 +47,14 @@ export function ListingDetailPage() {
   const [moderation, setModeration] = useState('');
   const [isModerating, setIsModerating] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!listing) return;
+    const canonical = listingPath(listing);
+    if (window.location.pathname !== canonical) {
+      navigate(canonical, { replace: true });
+    }
+  }, [listing, navigate]);
 
   // Set Open Graph & Twitter meta tags for social media previews
   useEffect(() => {

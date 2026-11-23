@@ -3,6 +3,7 @@ import { FaLocationDot, FaUserCheck } from 'react-icons/fa6';
 import type { Listing } from '../../types';
 import { formatNaira } from '../../utils/format';
 import { LISTING_TYPE_SHORT, SPECIES_LABELS, UNIT_LABELS } from '../../utils/listingMeta';
+import { listingPath } from '../../utils/listingUrl';
 
 function statusBadge(listing: Listing) {
   if (listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0)) {
@@ -24,7 +25,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
 
   return (
     <article className={`group overflow-hidden rounded-card bg-white ring-1 shadow-card transition ${isUnavailable ? 'ring-stone-300' : 'ring-stone-200 hover:shadow-lift'}`}>
-      <Link to={`/marketplace/${listing.id}`} className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
+      <Link to={listingPath(listing)} className="block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600">
         <div className="relative aspect-[4/3] overflow-hidden bg-stone-100">
           {cover ? (
             <img

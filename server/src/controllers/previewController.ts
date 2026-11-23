@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { Types } from 'mongoose';
 import { Listing } from '../models/Listing';
 import { env } from '../config/env';
+import { listingIdFromParam, listingSlugPath } from '../utils/listingId';
 
 function escapeHtml(str: string): string {
   return str
@@ -15,8 +16,9 @@ function escapeHtml(str: string): string {
 export async function handleListingSocialPreview(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const rawId = req.params.id;
-    const listingId = Array.isArray(rawId) ? rawId[0] : rawId;
-    if (!listingId || typeof listingId !== 'string' || !Types.ObjectId.isValid(listingId)) {
+    const raw = Array.isArray(rawId) ? rawId[0] : rawId;
+    const listingId = typeof raw === 'string' ? listingIdFromParam(raw) : '';
+    if (!listingId || !Types.ObjectId.isValid(listingId)) {
       return next();
     }
 
@@ -30,7 +32,7 @@ export async function handleListingSocialPreview(req: Request, res: Response, ne
     const priceFormatted = `₦${(listing.priceKobo / 100).toLocaleString()}`;
     const pageTitle = `${listing.title} — ${priceFormatted} | Halal Livestocks`;
     const description = `${priceFormatted} per ${listing.unit} • Located in ${listing.town}, ${listing.state}. ${listing.description.slice(0, 150)}...`;
-    const targetUrl = `${env.PUBLIC_APP_URL}/marketplace/${listing._id}`;
+    const targetUrl = `${env.PUBLIC_APP_URL}${listingSlugPath(listing)}`;
 
     const userAgent = req.get('user-agent') || '';
     const isBot = /facebookexternalhit|Facebot|Twitterbot|WhatsApp|TelegramBot|LinkedInBot|Slackbot|Discordbot|SkypeUriPreview|Google-Structured-Data-Testing-Tool|bingbot|crawler|spider/i.test(userAgent);
