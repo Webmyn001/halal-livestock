@@ -35,9 +35,10 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
-      # The public URL of the static site below, with no trailing slash.
+      # Allowed web origins, comma separated, no trailing slash. Include Render web URL + custom domain.
       - key: CLIENT_ORIGIN
         sync: false
+      # Canonical web URL for email links and payment return URLs.
       - key: PUBLIC_APP_URL
         sync: false
       - key: PUBLIC_API_URL

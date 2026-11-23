@@ -460,8 +460,8 @@ at each other:
 
 | Where | Variable | Value |
 | --- | --- | --- |
-| API web service | `CLIENT_ORIGIN` | The static site URL exactly as Render gives it, e.g. `https://halallivestocks.onrender.com`. No trailing slash and no path |
-| API web service | `PUBLIC_APP_URL` | Same static site URL. Email links are built from it |
+| API web service | `CLIENT_ORIGIN` | Allowed web origins, comma separated, no trailing slash. Include the Render web URL and custom domain, e.g. `https://halallivestock.com.ng,https://www.halallivestock.com.ng,https://halal-livestock-icir.onrender.com` |
+| API web service | `PUBLIC_APP_URL` | Canonical web URL used in email links and payment return URLs, e.g. `https://halallivestock.com.ng` |
 | API web service | `PUBLIC_API_URL` | The API URL, e.g. `https://halal-livestocks-api.onrender.com`. Only matters for image URLs |
 | Static site | `VITE_API_BASE_URL` | The API URL **plus** `/api/v1`, e.g. `https://halal-livestocks-api.onrender.com/api/v1` |
 
