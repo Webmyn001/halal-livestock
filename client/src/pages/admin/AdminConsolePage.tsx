@@ -20,7 +20,7 @@ import {
   disputeStatusLabel,
 } from '../../utils/orderMeta';
 
-const TABS = ['Overview', 'Orders', 'Payouts', 'Cases', 'Farms', 'Complaints', 'Send Message', 'Settings'] as const;
+const TABS = ['Overview', 'Orders', 'Transactions & Payouts', 'Cases', 'Farms', 'Complaints', 'Send Message', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
 
 export function AdminConsolePage() {
@@ -56,7 +56,7 @@ export function AdminConsolePage() {
       <div className="mt-7">
         {tab === 'Overview' ? <OverviewTab /> : null}
         {tab === 'Orders' ? <OrdersTab /> : null}
-        {tab === 'Payouts' ? <PayoutsTab /> : null}
+        {tab === 'Transactions & Payouts' ? <PayoutsTab /> : null}
         {tab === 'Cases' ? <CasesTab /> : null}
         {tab === 'Farms' ? <FarmsTab /> : null}
         {tab === 'Complaints' ? <ComplaintsTab /> : null}
@@ -103,22 +103,24 @@ function OverviewTab() {
 
   const ordersPlaced = Object.values(counts.orders).reduce((sum, value) => sum + value, 0);
   const ordersCompleted = counts.orders['completed'] ?? 0;
-  const ordersActive = (['funded', 'preparing', 'out_for_delivery'] as const).reduce(
+  const successfulTransactions = (counts.orders['completed'] ?? 0) + (counts.orders['awaiting_farmer_payout'] ?? 0) + (counts.orders['confirmed'] ?? 0);
+  const ordersActive = (['funded', 'preparing', 'out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue'] as const).reduce(
     (sum, s) => sum + (counts.orders[s] ?? 0),
     0,
   );
+  const disputedTransactions = (counts.orders['disputed'] ?? 0) + (counts.openDisputes ?? 0);
   const ordersCancelled = (counts.orders['cancelled'] ?? 0) + (counts.orders['refunded'] ?? 0);
 
   const tiles = [
-    { label: 'Buyers', value: String(counts.buyers) },
-    { label: 'Farmers', value: String(counts.farmers) },
-    { label: 'Live products', value: String(counts.activeListings) },
+    { label: 'Total successful transactions', value: String(successfulTransactions) },
+    { label: 'Total amount processed', value: formatNaira(counts.payouts.releasedKobo + counts.payouts.pendingKobo + counts.payouts.heldKobo) },
+    { label: 'Pending payouts', value: formatNaira(counts.payouts.pendingKobo) },
+    { label: 'Released payouts', value: formatNaira(counts.payouts.releasedKobo) },
+    { label: 'Disputed transactions', value: String(disputedTransactions) },
     { label: 'Orders placed', value: String(ordersPlaced) },
     { label: 'Orders completed', value: String(ordersCompleted) },
     { label: 'Orders in progress', value: String(ordersActive) },
-    { label: 'Open disputes', value: String(counts.openDisputes) },
     { label: 'Farms awaiting review', value: String(counts.kycWaiting) },
-    { label: 'Open complaints', value: String(counts.openComplaints) },
     { label: 'Cancelled / Refunded', value: String(ordersCancelled) },
   ];
 
@@ -159,6 +161,9 @@ function OverviewTab() {
 
 function OrdersTab() {
   const [status, setStatus] = useState('');
+  const [q, setQ] = useState('');
+  const [payoutStatus, setPayoutStatus] = useState('');
+  const [dispute, setDispute] = useState('');
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState('');
 
@@ -166,52 +171,60 @@ function OrdersTab() {
     setOrders(null);
     setError('');
     adminService
-      .orders(status || undefined)
+      .orders({ status: status || undefined, q: q.trim() || undefined, payoutStatus: payoutStatus || undefined, dispute: dispute || undefined })
       .then(setOrders)
       .catch((err: unknown) => setError(err instanceof ApiRequestError ? err.message : 'No orders to show.'));
-  }, [status]);
+  }, [status, q, payoutStatus, dispute]);
 
   useEffect(load, [load]);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
+        <Input label="Search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Order code, buyer, farmer..." className="w-full sm:w-64" />
         <label className="block">
           <span className="sr-only">Filter by status</span>
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:ring-4 focus:ring-brand-500/12"
-          >
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:ring-4 focus:ring-brand-500/12">
             <option value="">Every status</option>
             {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
+              <option key={value} value={value}>{label}</option>
             ))}
           </select>
         </label>
-        <Button variant="secondary" size="sm" onClick={load}>
-          Refresh
-        </Button>
+        <label className="block">
+          <span className="sr-only">Payout state</span>
+          <select value={payoutStatus} onChange={(e) => setPayoutStatus(e.target.value)} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:ring-4 focus:ring-brand-500/12">
+            <option value="">Any payout state</option>
+            <option value="not_eligible">Not eligible</option>
+            <option value="awaiting_payout">Awaiting payout</option>
+            <option value="held">Held</option>
+            <option value="paid">Paid</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="sr-only">Dispute state</span>
+          <select value={dispute} onChange={(e) => setDispute(e.target.value)} className="rounded-xl border border-stone-300 bg-white px-4 py-2 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:ring-4 focus:ring-brand-500/12">
+            <option value="">Any dispute state</option>
+            <option value="open">Dispute open</option>
+            <option value="none">No dispute</option>
+          </select>
+        </label>
+        <Button variant="secondary" size="sm" onClick={load}>Refresh</Button>
       </div>
 
       {error ? <LoadError message={error} /> : !orders ? <Loading /> : orders.length === 0 ? (
-        <p className="rounded-card bg-white p-6 text-sm text-ink-500 ring-1 ring-stone-200">
-          No order with that status yet.
-        </p>
+        <p className="rounded-card bg-white p-6 text-sm text-ink-500 ring-1 ring-stone-200">No orders match these filters.</p>
       ) : (
         <ul className="space-y-3">
           {orders.map((order) => (
-            <li
-              key={order.id}
-              className="flex flex-wrap items-center gap-3 rounded-card bg-white p-4 ring-1 ring-stone-200 shadow-card"
-            >
+            <li key={order.id} className="flex flex-wrap items-center gap-3 rounded-card bg-white p-4 ring-1 ring-stone-200 shadow-card">
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold text-ink-900">{order.snapshot.title}</span>
                 <span className="mt-0.5 block truncate text-xs text-ink-500">
-                  {order.orderCode} · {order.buyer?.fullName ?? 'Buyer'} to {order.farmer?.fullName ?? 'Farm'} ·{' '}
-                  {order.quantity} {UNIT_LABELS[order.snapshot.unit]}
+                  {order.orderCode} · {order.buyer?.fullName ?? 'Buyer'} to {order.farmer?.fullName ?? 'Farm'} · {order.quantity} {UNIT_LABELS[order.snapshot.unit]}
+                </span>
+                <span className="mt-1 block text-xs text-ink-400">
+                  Payout: {order.payoutStatus ?? 'not_eligible'}{order.disputeOpen ? ' · Dispute open' : ''}
                 </span>
               </span>
               <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${orderStatusStyle(order.status)}`}>
@@ -219,9 +232,7 @@ function OrdersTab() {
               </span>
               <span className="shrink-0 text-sm font-semibold text-ink-900">{formatNaira(order.totalKobo)}</span>
               <Link to={`/orders/${order.id}`}>
-                <Button size="sm" variant="secondary">
-                  Open
-                </Button>
+                <Button size="sm" variant="secondary">View details</Button>
               </Link>
             </li>
           ))}
@@ -237,6 +248,9 @@ function PayoutsTab() {
   const [error, setError] = useState('');
   const [problem, setProblem] = useState('');
   const [references, setReferences] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [evidence, setEvidence] = useState<Record<string, string>>({});
+  const [confirm, setConfirm] = useState<Record<string, boolean>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -254,13 +268,24 @@ function PayoutsTab() {
     event.preventDefault();
     const reference = (references[id] ?? '').trim();
     if (reference.length < 4) return;
+    if (!confirm[id]) {
+      setProblem('Review the payout details and confirm the transfer has been sent before recording it.');
+      return;
+    }
 
     setBusyId(id);
     setProblem('');
     try {
-      const settlement = await adminService.releaseSettlement(id, reference);
+      const settlement = await adminService.releaseSettlement(id, {
+        reference,
+        note: (notes[id] ?? '').trim() || undefined,
+        payoutEvidence: (evidence[id] ?? '').trim() || undefined,
+      });
       setRows((current) => (current ?? []).map((row) => (row.id === settlement.id ? settlement : row)));
       setReferences((current) => ({ ...current, [id]: '' }));
+      setNotes((current) => ({ ...current, [id]: '' }));
+      setEvidence((current) => ({ ...current, [id]: '' }));
+      setConfirm((current) => ({ ...current, [id]: false }));
     } catch (err) {
       setProblem(err instanceof ApiRequestError ? err.message : 'That payout stayed where it was.');
     } finally {
@@ -297,61 +322,89 @@ function PayoutsTab() {
         </p>
       ) : (
         <ul className="space-y-3">
-          {rows.map((row) => (
-            <li key={row.id} className="rounded-card bg-white p-4 ring-1 ring-stone-200 shadow-card sm:p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-ink-900">{row.farmerName ?? 'Farm'} · {row.orderCode}</p>
-                  <p className="mt-1 text-xs text-ink-500">Created {formatDate(row.createdAt)}</p>
-                  {(row.bank ?? row.farmerBank) ? (
-                    <p className="mt-1 text-xs text-ink-700">
-                      <span className="font-semibold">{row.bank ? 'Paid to' : 'Pay this account'}</span>{' '}
-                      {(row.bank ?? row.farmerBank)!.bankName} · {(row.bank ?? row.farmerBank)!.accountName} ·{' '}
-                      {(row.bank ?? row.farmerBank)!.accountNumber}
+          {rows.map((row) => {
+            const bank = row.bank ?? row.farmerBank;
+            return (
+              <li key={row.id} className="rounded-card bg-white p-4 ring-1 ring-stone-200 shadow-card sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink-900">{row.farmerName ?? 'Farm'} · {row.orderCode}</p>
+                    <p className="mt-1 text-xs text-ink-500">Created {formatDate(row.createdAt)}</p>
+                    {bank ? (
+                      <p className="mt-1 text-xs text-ink-700">
+                        <span className="font-semibold">{row.bank ? 'Paid to' : 'Pay this account'}</span>{' '}
+                        {bank.bankName} · {bank.accountName} · {bank.accountNumber}
+                      </p>
+                    ) : null}
+                    {row.note ? <p className="mt-1.5 text-xs text-amber-800">{row.note}</p> : null}
+                    {row.reference ? <p className="mt-1.5 text-xs text-ink-500">Transfer reference: {row.reference}</p> : null}
+                    {row.payoutEvidence ? <p className="mt-1 text-xs text-ink-500">Evidence: {row.payoutEvidence}</p> : null}
+                    {row.releasedAt ? <p className="mt-1 text-xs text-ink-500">Released {formatDateTime(row.releasedAt)}{row.releasedById ? ` by ${row.releasedById}` : ''}</p> : null}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-ink-900">{formatNaira(row.netKobo)}</p>
+                    <p className="mt-0.5 text-[11px] text-ink-500">
+                      {formatNaira(row.grossKobo)} gross · {formatNaira(row.commissionKobo)} commission
                     </p>
-                  ) : null}
-                  {row.note ? <p className="mt-1.5 text-xs text-amber-800">{row.note}</p> : null}
-                  {row.reference ? (
-                    <p className="mt-1.5 text-xs text-ink-500">Transfer reference {row.reference}</p>
-                  ) : null}
+                    <span className="mt-1.5 inline-flex rounded-full bg-stone-100 px-2.5 py-0.5 text-[11px] font-semibold text-ink-700 ring-1 ring-inset ring-stone-200">
+                      {settlementStatusLabel(row.status)}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-ink-900">{formatNaira(row.netKobo)}</p>
-                  <p className="mt-0.5 text-[11px] text-ink-500">
-                    {formatNaira(row.grossKobo)} less {formatNaira(row.commissionKobo)}
-                  </p>
-                  <span className="mt-1.5 inline-flex rounded-full bg-stone-100 px-2.5 py-0.5 text-[11px] font-semibold text-ink-700 ring-1 ring-inset ring-stone-200">
-                    {settlementStatusLabel(row.status)}
-                  </span>
-                </div>
-              </div>
 
-              {row.status !== 'released' ? (
-                <form onSubmit={(event) => release(row.id, event)} className="mt-4 flex flex-wrap items-end gap-3">
-                  <Input
-                    label="Transfer reference"
-                    value={references[row.id] ?? ''}
-                    onChange={(event) => setReferences((current) => ({ ...current, [row.id]: event.target.value }))}
-                    hint="Send the money to the account above first. Nothing is paid automatically — this records the transfer identifier."
-                    className="max-w-xs"
-                  />
-                  <Button
-                    type="submit"
-                    size="sm"
-                    isLoading={busyId === row.id}
-                    disabled={(references[row.id] ?? '').trim().length < 4}
-                  >
-                    Mark as paid out
-                  </Button>
-                  <Link to={`/orders/${row.orderId}`} className="self-center">
-                    <Button size="sm" variant="ghost" type="button">
-                      The order
-                    </Button>
-                  </Link>
-                </form>
-              ) : null}
-            </li>
-          ))}
+                {row.status !== 'released' ? (
+                  <form onSubmit={(event) => release(row.id, event)} className="mt-4 space-y-3 rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
+                    <p className="text-xs font-semibold text-ink-700">Review before payout</p>
+                    <p className="text-xs text-ink-500">Confirm bank details, transfer manually through your payout process, then record the reference. This action is auditable and cannot be duplicated.</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input
+                        label="Transfer reference"
+                        value={references[row.id] ?? ''}
+                        onChange={(event) => setReferences((current) => ({ ...current, [row.id]: event.target.value }))}
+                        hint="Required. Use the bank/provider transfer reference."
+                      />
+                      <Input
+                        label="Evidence / receipt note (optional)"
+                        value={evidence[row.id] ?? ''}
+                        onChange={(event) => setEvidence((current) => ({ ...current, [row.id]: event.target.value }))}
+                        hint="Receipt URL, transfer note, or internal evidence reference."
+                      />
+                    </div>
+                    <Textarea
+                      label="Admin note (optional)"
+                      rows={2}
+                      value={notes[row.id] ?? ''}
+                      onChange={(event) => setNotes((current) => ({ ...current, [row.id]: event.target.value }))}
+                    />
+                    <label className="flex items-start gap-2 text-xs text-ink-700">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(confirm[row.id])}
+                        onChange={(event) => setConfirm((current) => ({ ...current, [row.id]: event.target.checked }))}
+                        className="mt-0.5 size-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
+                      />
+                      <span>I have reviewed the bank details and confirmed the transfer was sent. I understand this records the payout as paid.</span>
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="submit"
+                        size="sm"
+                        isLoading={busyId === row.id}
+                        disabled={(references[row.id] ?? '').trim().length < 4 || !confirm[row.id]}
+                      >
+                        Record payout as paid
+                      </Button>
+                      <Link to={`/orders/${row.orderId}`} className="self-center">
+                        <Button size="sm" variant="ghost" type="button">
+                          View order
+                        </Button>
+                      </Link>
+                    </div>
+                  </form>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

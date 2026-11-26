@@ -60,6 +60,11 @@ export const orderService = {
     return data.order;
   },
 
+  async dispatch(id: string, payload: { etaValue: number; etaUnit: 'hours' | 'days'; note?: string }): Promise<Order> {
+    const data = await request<{ order: Order }>({ method: 'POST', url: `/orders/${id}/dispatch`, data: payload });
+    return data.order;
+  },
+
   /** The test provider only: it marks the in memory checkout as paid and funds the order. */
   async completeMockPayment(reference: string): Promise<{ id: string; orderCode: string; status: string }> {
     const data = await request<{ order: { id: string; orderCode: string; status: string } }>({

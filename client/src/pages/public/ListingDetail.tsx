@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   FaArrowLeftLong,
   FaLocationDot,
@@ -12,6 +12,7 @@ import {
 import { Alert } from '../../components/common/Alert';
 import { Button, Spinner } from '../../components/common/Button';
 import { OrderPanel } from '../../components/marketplace/OrderPanel';
+import { ChatPanel } from '../../components/order/ChatPanel';
 import { useAuth } from '../../hooks/useAuth';
 import { adminService } from '../../services/adminService';
 import { ApiRequestError } from '../../services/apiClient';
@@ -40,6 +41,7 @@ export function ListingDetailPage() {
   const { id: rawId = '' } = useParams();
   const id = listingIdFromParam(rawId);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [listing, setListing] = useState<Listing | null>(null);
   const [error, setError] = useState<ApiRequestError | null>(null);
@@ -47,6 +49,12 @@ export function ListingDetailPage() {
   const [moderation, setModeration] = useState('');
   const [isModerating, setIsModerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const threadParam = new URLSearchParams(location.search).get('thread') ?? undefined;
+
+  useEffect(() => {
+    if (threadParam) setChatOpen(true);
+  }, [threadParam]);
 
   useEffect(() => {
     if (!listing) return;
@@ -390,7 +398,7 @@ export function ListingDetailPage() {
               </button>
             </div>
 
-            <div className="mt-6 space-y-4">
+            <div className="mt-6 space-y-4" id="order-panel">
               <OrderPanel listing={listing} />
               <Link to="/how-it-works" className="block text-center text-xs font-medium text-brand-700 underline">
                 How the payment is held
@@ -417,6 +425,42 @@ export function ListingDetailPage() {
                 </div>
               </div>
             ) : null}
+          </div>
+
+          <div className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card">
+            <h2 className="font-display text-lg font-semibold text-ink-900">Have questions about this livestock?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-ink-600">
+              Chat directly with the farmer to discuss availability, condition, delivery arrangements, and other important details before making payment.
+            </p>
+            {!user ? (
+              <div className="mt-4 space-y-2">
+                <p className="text-xs text-ink-500">Sign in as a buyer to chat with the farmer.</p>
+                <Link to="/login" state={{ from: location.pathname }}><Button className="w-full">Sign in to chat</Button></Link>
+              </div>
+            ) : user.role === 'buyer' ? (
+              <div className="mt-4">
+                {!chatOpen ? (
+                  <Button className="w-full" onClick={() => setChatOpen(true)}>Chat with Farmer</Button>
+                ) : (
+                  <div className="space-y-3">
+                    <ChatPanel listingId={listing.id} threadId={threadParam} myRole="buyer" compact />
+                    <Button variant="secondary" className="w-full" onClick={() => { document.getElementById('order-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>Proceed to Order</Button>
+                  </div>
+                )}
+              </div>
+            ) : user.role === 'farmer' && user.id === listing.farmer?.id ? (
+              <div className="mt-4">
+                {threadParam ? (
+                  <ChatPanel threadId={threadParam} myRole="farmer" compact />
+                ) : (
+                  <p className="text-sm text-ink-500">
+                    Buyer inquiries for this listing appear in <Link to="/notifications" className="font-semibold text-brand-700 underline">Messages &amp; notifications</Link>.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-ink-500">Only buyers can start a chat with the farmer from this listing.</p>
+            )}
           </div>
 
           <div className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card">

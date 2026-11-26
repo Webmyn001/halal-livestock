@@ -3,6 +3,7 @@ import { ApiError } from '../utils/ApiError';
 import { sendSuccess } from '../utils/apiResponse';
 import { logger } from '../utils/logger';
 import { Dispute, toPublicDispute, type DisputeDoc, type IDisputeImage } from '../models/Dispute';
+import { Notification } from '../models/Notification';
 import { Order, type OrderDoc } from '../models/Order';
 import { loadSettings } from '../models/PlatformSettings';
 import { Settlement } from '../models/Settlement';
@@ -10,7 +11,7 @@ import { deleteImage, disputeFolder, MAX_IMAGE_FILES, MAX_TOTAL_BYTES, storeImag
 import { createDisputeSchema, type CreateDisputeInput } from '../validation/disputeSchemas';
 
 const MAX_EVIDENCE_PHOTOS = 6;
-const OPENABLE_STATUSES = ['funded', 'preparing', 'out_for_delivery', 'confirmed'];
+const OPENABLE_STATUSES = ['funded', 'preparing', 'out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue', 'confirmed', 'awaiting_farmer_payout'];
 
 function asFiles(value: unknown): Express.Multer.File[] {
   if (Array.isArray(value)) return value as Express.Multer.File[];
@@ -83,6 +84,18 @@ export async function createDispute(req: Request, res: Response): Promise<void> 
 
   // The payout waits while a case is live, so a ruling is the only thing that moves money.
   order.disputeOpen = true;
+  order.buyerConfirmationStatus = 'disputed';
+  order.payoutStatus = 'held';
+  order.status = 'disputed';
+  order.timeline = order.timeline ?? [];
+  order.timeline.push({
+    at: new Date(),
+    actorRole: role,
+    actorId: req.user!.userId,
+    type: 'dispute_opened',
+    label: 'Dispute opened',
+    note: input.description.slice(0, 200),
+  });
   await order.save();
 
   const settlement = await Settlement.findOne({ orderId: order._id });
@@ -91,6 +104,17 @@ export async function createDispute(req: Request, res: Response): Promise<void> 
     settlement.note = 'Held while a dispute is open';
     await settlement.save();
   }
+
+  const link = `/orders/${order.id}`;
+  const title = `Dispute opened: ${order.orderCode}`;
+  const buyerMsg = `Your dispute for ${order.orderCode} was submitted. Admin will review it.`;
+  const farmerMsg = `A buyer reported a delivery problem for ${order.orderCode}. Payout is suspended until admin review.`;
+  const adminMsg = `Buyer reported a delivery problem on ${order.orderCode}. Dispute opened - review and resolve it.`;
+  await Promise.allSettled([
+    Notification.create({ userId: String(order.buyerId), title, message: buyerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+    Notification.create({ userId: String(order.farmerId), title, message: farmerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+    Notification.create({ recipientRole: 'admin', title, message: adminMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+  ]);
 
   await dispute.populate('orderId', 'orderCode totalKobo');
   sendSuccess(res, { dispute: toPublicDispute(dispute, req.user!.userId) }, 201);

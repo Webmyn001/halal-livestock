@@ -5,6 +5,7 @@ import { logger } from '../utils/logger';
 import { Complaint, toPublicComplaint } from '../models/Complaint';
 import { Dispute, toPublicDispute } from '../models/Dispute';
 import { Listing, toPublicListing } from '../models/Listing';
+import { Notification } from '../models/Notification';
 import { Order, toPublicOrder } from '../models/Order';
 import { loadSettings, toPublicSettings } from '../models/PlatformSettings';
 import { Settlement, toPublicSettlement } from '../models/Settlement';
@@ -33,9 +34,13 @@ export async function dashboardCounts(req: Request, res: Response): Promise<void
     funded,
     preparing,
     onTheRoad,
+    awaitingBuyerConfirmation,
+    deliveryOverdue,
     confirmed,
+    awaitingFarmerPayout,
     completed,
     refunded,
+    disputed,
     openComplaints,
     openDisputes,
     kycWaiting,
@@ -49,9 +54,13 @@ export async function dashboardCounts(req: Request, res: Response): Promise<void
     Order.countDocuments({ status: 'funded' }),
     Order.countDocuments({ status: 'preparing' }),
     Order.countDocuments({ status: 'out_for_delivery' }),
+    Order.countDocuments({ status: 'awaiting_buyer_confirmation' }),
+    Order.countDocuments({ status: 'delivery_overdue' }),
     Order.countDocuments({ status: 'confirmed' }),
+    Order.countDocuments({ status: 'awaiting_farmer_payout' }),
     Order.countDocuments({ status: 'completed' }),
     Order.countDocuments({ status: 'refunded' }),
+    Order.countDocuments({ status: 'disputed' }),
     Complaint.countDocuments({ status: 'open' }),
     Dispute.countDocuments({ status: { $in: ['open', 'in_review'] } }),
     User.countDocuments({ role: 'farmer', 'farmerProfile.status': 'submitted' }),
@@ -68,7 +77,19 @@ export async function dashboardCounts(req: Request, res: Response): Promise<void
       farmers,
       drivers,
       activeListings,
-      orders: { awaitingPayment, funded, preparing, onTheRoad, confirmed, completed, refunded },
+      orders: {
+        awaitingPayment,
+        funded,
+        preparing,
+        onTheRoad,
+        awaitingBuyerConfirmation,
+        deliveryOverdue,
+        confirmed,
+        awaitingFarmerPayout,
+        completed,
+        refunded,
+        disputed,
+      },
       openComplaints,
       openDisputes,
       kycWaiting,
@@ -179,7 +200,7 @@ export async function listSettlements(req: Request, res: Response): Promise<void
 }
 
 export async function releaseSettlementById(req: Request, res: Response): Promise<void> {
-  const { reference } = req.body as { reference?: string };
+  const { reference, note, payoutEvidence } = req.body as { reference?: string; note?: string; payoutEvidence?: string };
   if (!reference || reference.trim().length < 4) throw ApiError.badRequest('Add the transfer reference so this payout can be traced');
 
   const existing = await Settlement.findById(req.params.id);
@@ -191,7 +212,7 @@ export async function releaseSettlementById(req: Request, res: Response): Promis
     .populate('driverId', 'fullName');
   if (!order) throw ApiError.notFound('The order behind that payout is gone');
 
-  const { settlement } = await releaseSettlement(order, req.user!.userId, reference.trim());
+  const { settlement } = await releaseSettlement(order, req.user!.userId, reference.trim(), { note, payoutEvidence });
 
   sendSuccess(res, { settlement: toPublicSettlement(settlement), order: toPublicOrder(order, req.user!) });
 }
@@ -226,16 +247,38 @@ export async function ruleDispute(req: Request, res: Response): Promise<void> {
       { $set: { status: 'held', note: 'Refunded to the buyer after a dispute' } }
     );
     dispute.status = 'refund_agreed';
+    order.disputeOpen = false;
+    order.buyerConfirmationStatus = 'disputed';
+    order.payoutStatus = 'not_eligible';
+    order.timeline = order.timeline ?? [];
+    order.timeline.push({ at: new Date(), actorRole: 'admin', actorId: req.user!.userId, type: 'dispute_refunded', label: 'Dispute resolved: refund to buyer', note: input.note });
   } else {
-    // Only a payout this case froze goes back to the queue, never one held for missing verification.
     await Settlement.updateOne(
       { orderId: order._id, status: 'held', note: 'Held while a dispute is open' },
       { $set: { status: 'pending', note: undefined } }
     );
     dispute.status = 'release_agreed';
+    order.disputeOpen = false;
+    const wasConfirmed = Boolean(order.confirmedAt) || ['confirmed', 'awaiting_farmer_payout', 'completed'].includes(order.status);
+    if (wasConfirmed) {
+      order.status = 'confirmed';
+      order.buyerConfirmationStatus = 'confirmed';
+      order.deliveryStatus = 'delivered';
+      order.payoutStatus = 'awaiting_payout';
+    } else if (order.dispatchedAt) {
+      order.status = 'out_for_delivery';
+      order.buyerConfirmationStatus = 'pending';
+      order.deliveryStatus = order.expectedDeliveryAt && order.expectedDeliveryAt.getTime() < Date.now() ? 'delivery_overdue' : 'in_transit';
+      order.payoutStatus = 'not_eligible';
+    } else if (order.paidAt) {
+      order.status = order.acceptedAt ? 'preparing' : 'funded';
+      order.buyerConfirmationStatus = 'not_required';
+      order.payoutStatus = 'not_eligible';
+    }
+    order.timeline = order.timeline ?? [];
+    order.timeline.push({ at: new Date(), actorRole: 'admin', actorId: req.user!.userId, type: 'dispute_released', label: 'Dispute resolved: release to farmer', note: input.note });
   }
 
-  order.disputeOpen = false;
   await order.save();
 
   dispute.resolutionNote = input.note;
@@ -244,14 +287,38 @@ export async function ruleDispute(req: Request, res: Response): Promise<void> {
   await dispute.save();
   await dispute.populate('orderId', 'orderCode totalKobo');
 
+  const link = `/orders/${order.id}`;
+  const outcomeText = input.outcome === 'refund' ? 'refunded to the buyer' : 'released for farmer payout processing';
+  await Promise.allSettled([
+    Notification.create({ userId: String(order.buyerId), title: `Dispute update: ${order.orderCode}`, message: `Your dispute was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
+    Notification.create({ userId: String(order.farmerId), title: `Dispute update: ${order.orderCode}`, message: `A dispute on your order was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
+  ]);
+
   logger.info('Dispute ruled', { disputeId: dispute.id, outcome: input.outcome, orderCode: order.orderCode });
   sendSuccess(res, { dispute: toPublicDispute(dispute, req.user!.userId), order: toPublicOrder(order, req.user!) });
 }
 
 export async function listAllOrders(req: Request, res: Response): Promise<void> {
-  const status = req.query.status as string | undefined;
+  const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+  const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  const payoutStatus = typeof req.query.payoutStatus === 'string' ? req.query.payoutStatus : undefined;
+  const dispute = typeof req.query.dispute === 'string' ? req.query.dispute : undefined;
+
   const filter: Record<string, unknown> = {};
   if (status && status !== 'all') filter.status = status;
+  if (payoutStatus && payoutStatus !== 'all') filter.payoutStatus = payoutStatus;
+  if (dispute === 'open') filter.disputeOpen = true;
+  if (dispute === 'none') filter.disputeOpen = false;
+
+  if (q) {
+    const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const users = await User.find({ $or: [{ fullName: rx }, { email: rx }, { phoneNumber: rx }] }).select('_id').limit(20).lean();
+    const userIds = users.map((u) => u._id);
+    filter.$or = [
+      { orderCode: rx },
+      ...(userIds.length ? [{ buyerId: { $in: userIds } }, { farmerId: { $in: userIds } }] : []),
+    ];
+  }
 
   const orders = await Order.find(filter)
     .sort({ createdAt: -1 })

@@ -16,13 +16,16 @@ export function VerificationCard() {
 
   const accountEmail = user.email;
 
+  const isFarmer = user.role === 'farmer';
+
   if (user.isEmailVerified) {
     return (
       <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
         <h2 className="font-display text-lg font-semibold text-ink-900">Account checks</h2>
         <p className="mt-2 text-sm leading-relaxed text-ink-500">
-          Your email address is confirmed. The review team checks the phone number you gave when they assess your farm
-          details.
+          {isFarmer
+            ? 'Your email address is confirmed. The review team checks the phone number you gave when they assess your farm details.'
+            : 'Your email address is confirmed. You can browse livestock, chat with farmers, and place orders securely.'}
         </p>
       </section>
     );
@@ -45,8 +48,9 @@ export function VerificationCard() {
     <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
       <h2 className="font-display text-lg font-semibold text-ink-900">Confirm your email address</h2>
       <p className="mt-1.5 text-sm leading-relaxed text-ink-500">
-        The link is free, works once, and takes under a minute. You need it before you can send your farm details for
-        review.
+        {isFarmer
+          ? 'The link is free, works once, and takes under a minute. You need it before you can send your farm details for review.'
+          : 'The link is free, works once, and takes under a minute. Confirm your email to receive order updates and payment receipts.'}
       </p>
 
       {error ? (

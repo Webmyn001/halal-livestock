@@ -2,13 +2,11 @@ import type { Request, Response } from 'express';
 import { ApiError } from '../utils/ApiError';
 import { sendSuccess } from '../utils/apiResponse';
 import { Conversation, Message, toPublicConversation, toPublicMessage, type ConversationDoc } from '../models/Chat';
+import { Listing } from '../models/Listing';
 import { Order } from '../models/Order';
 import { sendMessageSchema, threadListQuerySchema, type SendMessageInput } from '../validation/chatSchemas';
 
-/** A thread belongs to the buyer and the farmer on one order, and to nobody else. */
-async function findMyConversation(
-  req: Request
-): Promise<{ conversation: ConversationDoc; role: 'buyer' | 'farmer' }> {
+async function findMyConversation(req: Request): Promise<{ conversation: ConversationDoc; role: 'buyer' | 'farmer' }> {
   const conversation = await Conversation.findById(req.params.id);
   if (!conversation) throw ApiError.notFound('That conversation does not exist');
 
@@ -47,12 +45,13 @@ export async function readThread(req: Request, res: Response): Promise<void> {
   else conversation.farmerUnread = 0;
   await conversation.save();
 
-  const order = await Order.findById(conversation.orderId).select('orderCode status');
+  const order = conversation.orderId ? await Order.findById(conversation.orderId).select('orderCode status').lean() : null;
+  const listing = conversation.listingId ? await Listing.findById(conversation.listingId).select('title').lean() : null;
 
   sendSuccess(res, {
     thread: toPublicConversation(conversation, role),
-    order: order ? { id: order.id, orderCode: order.orderCode, status: order.status } : null,
-    // Newest first is cheaper to page through, and the chat view reverses it.
+    order: order ? { id: String(order._id), orderCode: order.orderCode, status: order.status } : null,
+    listing: listing ? { id: String(listing._id), title: listing.title } : null,
     messages: messages.reverse().map(toPublicMessage),
   });
 }
@@ -75,4 +74,36 @@ export async function postMessage(req: Request, res: Response): Promise<void> {
   await conversation.save();
 
   sendSuccess(res, { message: toPublicMessage(message) }, 201);
+}
+
+export async function getListingThread(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.userId;
+  const role = req.user!.role;
+  if (role !== 'buyer') throw ApiError.forbidden('Only buyers can start a listing chat');
+
+  const listing = await Listing.findById(req.params.listingId).select('farmerId title status').lean();
+  if (!listing) throw ApiError.notFound('That listing no longer exists');
+  if (String(listing.farmerId) === userId) throw ApiError.badRequest('You cannot chat with yourself');
+
+  let conversation: ConversationDoc | null = await Conversation.findOne({ listingId: listing._id, buyerId: userId } as any);
+  if (!conversation) {
+    conversation = await Conversation.create({
+      kind: 'listing',
+      listingId: listing._id,
+      buyerId: userId,
+      farmerId: listing.farmerId,
+      lastMessageAt: new Date(),
+      lastMessageBody: '',
+    } as any);
+  }
+
+  const messages = await Message.find({ conversationId: conversation._id }).sort({ createdAt: 1 }).limit(200).populate('senderId', 'fullName');
+  conversation.buyerUnread = 0;
+  await conversation.save();
+
+  sendSuccess(res, {
+    conversation: { id: conversation.id, listingId: String(listing._id), kind: 'listing', role: 'buyer' },
+    listing: { id: String(listing._id), title: listing.title },
+    messages: messages.map(toPublicMessage),
+  });
 }

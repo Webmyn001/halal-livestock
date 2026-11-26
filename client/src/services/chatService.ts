@@ -29,9 +29,15 @@ export const chatService = {
   /** The thread lives on the order page, so the id is looked up from there. */
   async forOrder(orderId: string): Promise<{ conversation: ChatThread; messages: ChatMessage[] }> {
     return request<{ conversation: ChatThread; messages: ChatMessage[] }>({
-      method:
-        'GET',
+      method: 'GET',
       url: `/orders/${orderId}/thread`,
+    });
+  },
+
+  async forListing(listingId: string): Promise<{ conversation: ChatThread; messages: ChatMessage[]; listing?: { id: string; title: string } }> {
+    return request<{ conversation: ChatThread; messages: ChatMessage[]; listing?: { id: string; title: string } }>({
+      method: 'GET',
+      url: `/conversations/listing/${listingId}`,
     });
   },
 };

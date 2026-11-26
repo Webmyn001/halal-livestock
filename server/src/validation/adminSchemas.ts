@@ -12,7 +12,9 @@ export const reviewKycSchema = z.object({
 });
 
 export const releaseSettlementSchema = z.object({
-  reference: z.string().trim().min(4).max(60),
+  reference: z.string().trim().min(4).max(120),
+  note: z.string().trim().max(500).optional(),
+  payoutEvidence: z.string().trim().max(1000).optional(),
 });
 
 export const settingsSchema = z

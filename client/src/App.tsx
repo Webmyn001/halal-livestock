@@ -91,7 +91,7 @@ export default function App() {
           <Route
             path="/notifications"
             element={
-              <ProtectedRoute roles={['buyer', 'farmer']}>
+              <ProtectedRoute roles={['buyer', 'farmer', 'admin']}>
                 <NotificationsPage />
               </ProtectedRoute>
             }

@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { FaArrowLeftLong, FaWallet, FaCircleCheck, FaTriangleExclamation } from 'react-icons/fa6';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { Alert } from '../components/common/Alert';
 import { Button, Spinner } from '../components/common/Button';
-import { Input } from '../components/common/Input';
-import { ChatPanel } from '../components/order/ChatPanel';
+import { Textarea } from '../components/common/Textarea';
 import { DisputePanel } from '../components/order/DisputePanel';
+import { ChatPanel } from '../components/order/ChatPanel';
 import { StatusTimeline } from '../components/order/StatusTimeline';
 import { useAuth } from '../hooks/useAuth';
 import { ApiRequestError } from '../services/apiClient';
@@ -16,74 +15,62 @@ import { LISTING_TYPE_LABELS, SPECIES_LABELS, UNIT_LABELS } from '../utils/listi
 import { listingPath } from '../utils/listingUrl';
 import { ORDER_STATUS_LABELS, orderStatusStyle } from '../utils/orderMeta';
 
-/** Statuses where a buyer can report non-receipt */
-const REPORT_NONRECEIPT_STATUSES: Order['status'][] = ['out_for_delivery', 'preparing', 'funded'];
-/** Statuses where a buyer can mark as received */
-const MARK_RECEIVED_STATUSES: Order['status'][] = ['out_for_delivery'];
+function canBuyerCancel(status: Order['status']): boolean {
+  return ['awaiting_payment', 'funded', 'preparing'].includes(status);
+}
 
 export function OrderDetailPage() {
   const { id = '' } = useParams();
-  const [searchParams] = useSearchParams();
   const { user } = useAuth();
-
   const [order, setOrder] = useState<Order | null>(null);
-  const [error, setError] = useState<ApiRequestError | null>(null);
-  const [problem, setProblem] = useState('');
-  const [busy, setBusy] = useState<'pay' | 'check' | 'accept' | 'cancel' | 'confirm' | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const [note, setNote] = useState('');
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
-  const [isCancelOpen, setIsCancelOpen] = useState(false);
-  // The payment success page links here with ?report=1 so a buyer can open a case in one click.
-  const [showReportForm, setShowReportForm] = useState(searchParams.get('report') === '1');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [dispatchEtaValue, setDispatchEtaValue] = useState(24);
+  const [dispatchEtaUnit, setDispatchEtaUnit] = useState<'hours' | 'days'>('hours');
+  const [dispatchNote, setDispatchNote] = useState('');
 
-  const load = useCallback(() => {
-    setOrder(null);
-    setError(null);
-    orderService
-      .get(id)
-      .then(setOrder)
-      .catch((err: unknown) => {
-        setError(err instanceof ApiRequestError ? err : new ApiRequestError('Could not open that order', 'UNKNOWN'));
-      });
+  const load = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    setError('');
+    try {
+      const loaded = await orderService.get(id);
+      setOrder(loaded);
+    } catch (err) {
+      setError(err instanceof ApiRequestError ? err.message : 'Could not load this order.');
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
-  useEffect(load, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  async function run(action: 'pay' | 'check' | 'accept' | 'cancel' | 'confirm', task: () => Promise<Order>) {
-    setBusy(action);
-    setProblem('');
+  async function run(label: string, task: () => Promise<Order | void>) {
+    setBusy(label);
+    setError('');
+    setNote('');
     try {
-      setOrder(await task());
-      if (action === 'cancel') setIsCancelOpen(false);
+      const next = await task();
+      if (next) setOrder(next);
       window.dispatchEvent(new Event('halal:orders-changed'));
     } catch (err) {
-      setProblem(err instanceof ApiRequestError ? err.message : 'That action did not go through.');
+      setError(err instanceof ApiRequestError ? err.message : 'Something went wrong. Try again.');
     } finally {
       setBusy(null);
     }
   }
 
-  if (error) {
-    return (
-      <div className="page-shell py-16">
-        <div className="mx-auto max-w-lg space-y-6">
-          <Alert tone="error" title="That order is not here">
-            {error.message}
-          </Alert>
-          <Link to="/orders">
-            <Button variant="secondary">
-              <FaArrowLeftLong aria-hidden="true" className="size-3.5" />
-              Back to my orders
-            </Button>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+  if (loading) return <div className="flex justify-center py-16"><Spinner className="size-6 text-brand-700" /></div>;
   if (!order || !user) {
     return (
-      <div className="grid min-h-[50vh] place-items-center text-brand-600">
-        <Spinner className="size-8" />
+      <div className="mx-auto max-w-3xl px-4 py-12">
+        <Alert tone="error">{error || 'This order could not be found.'}</Alert>
+        <Link to="/orders" className="mt-4 inline-block text-sm font-medium text-brand-700">Back to orders</Link>
       </div>
     );
   }
@@ -91,353 +78,279 @@ export function OrderDetailPage() {
   const isBuyer = user.role === 'buyer' && order.isBuyer;
   const isFarmer = user.role === 'farmer' && order.isFarmer;
   const isAdmin = user.role === 'admin';
-  const partyChat = isBuyer || isFarmer;
-  const unit = order.quantity === 1 ? UNIT_LABELS[order.snapshot.unit] : `${UNIT_LABELS[order.snapshot.unit]}s`;
   const canPay = isBuyer && order.status === 'awaiting_payment';
-  const canCancel = (isBuyer || isAdmin) && ['awaiting_payment', 'funded', 'preparing'].includes(order.status);
-  const canMarkReceived = isBuyer && MARK_RECEIVED_STATUSES.includes(order.status);
-  const canReportNonReceipt = isBuyer && REPORT_NONRECEIPT_STATUSES.includes(order.status) && !order.disputeOpen;
-
-  // Timeline role
-  const timelineRole: 'buyer' | 'farmer' | 'admin' = isFarmer ? 'farmer' : isAdmin ? 'admin' : 'buyer';
+  const canCancel = (isBuyer || isAdmin) && canBuyerCancel(order.status);
+  const canAccept = isFarmer && order.status === 'funded';
+  const canDispatch = isFarmer && ['preparing', 'funded'].includes(order.status) && !order.disputeOpen;
+  const canConfirm = isBuyer && ['out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue', 'preparing'].includes(order.status) && !order.disputeOpen;
+  const canReport = isBuyer && !order.disputeOpen && ['funded', 'preparing', 'out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue', 'confirmed', 'awaiting_farmer_payout'].includes(order.status);
+  const timelineRole = isFarmer ? 'farmer' : isAdmin ? 'admin' : 'buyer';
 
   async function handlePay() {
-    setBusy('pay');
-    setProblem('');
-    try {
-      const checkout = await orderService.startPayment(id);
+    if (!order) return;
+    await run('pay', async () => {
+      const checkout = await orderService.startPayment(order.id);
       window.location.assign(checkout.authorizationUrl);
-    } catch (err) {
-      setProblem(err instanceof ApiRequestError ? err.message : 'The payment page did not open.');
-      setBusy(null);
-    }
+    });
+  }
+
+  async function handleCheckPayment() {
+    if (!order) return;
+    await run('check', async () => {
+      const result = await orderService.checkPayment(order.id);
+      setNote(result.paid ? 'Payment confirmed. The farmer has been notified.' : 'Payment is not confirmed yet. If you paid, wait a moment and check again.');
+      return result.order;
+    });
+  }
+
+  async function handleAccept() {
+    if (!order) return;
+    await run('accept', async () => {
+      const next = await orderService.accept(order.id);
+      setNote('Preparation started. The buyer has been notified.');
+      return next;
+    });
+  }
+
+  async function handleDispatch(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!order) return;
+    await run('dispatch', async () => {
+      const next = await orderService.dispatch(order.id, { etaValue: dispatchEtaValue, etaUnit: dispatchEtaUnit, note: dispatchNote || undefined });
+      setNote('Livestock dispatched. The buyer has been notified of the expected delivery time.');
+      return next;
+    });
+  }
+
+  async function handleConfirm() {
+    if (!order) return;
+    await run('confirm', async () => {
+      const next = await orderService.confirm(order.id);
+      setConfirmOpen(false);
+      setNote('Receipt confirmed. The transaction is now awaiting admin payout processing.');
+      return next;
+    });
+  }
+
+  async function handleCancel(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!order) return;
+    if (cancelReason.trim().length < 6) { setError('Please give a short reason (at least 6 characters).'); return; }
+    await run('cancel', async () => {
+      const next = await orderService.cancel(order.id, cancelReason.trim());
+      setCancelOpen(false);
+      setCancelReason('');
+      setNote(next.status === 'refunded' ? 'Order cancelled and refund requested.' : 'Order cancelled.');
+      return next;
+    });
   }
 
   return (
-    <div className="page-shell py-8 sm:py-12">
-      <Link
-        to={isAdmin ? '/admin/dashboard' : '/orders'}
-        className="inline-flex items-center gap-2 text-sm font-medium text-ink-500 transition hover:text-brand-700"
-      >
-        <FaArrowLeftLong aria-hidden="true" className="size-3.5" />
-        {isAdmin ? 'Admin console' : 'My orders'}
-      </Link>
-
-      <header className="mt-5 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-brand-700">Order {order.orderCode}</p>
-          <h1 className="mt-1.5 text-balance text-2xl font-bold text-ink-900 sm:text-3xl">{order.snapshot.title}</h1>
-          <p className="mt-1.5 text-sm text-ink-500">
-            Placed {formatDateTime(order.createdAt)} · {SPECIES_LABELS[order.snapshot.species]} ·{' '}
-            {LISTING_TYPE_LABELS[order.snapshot.listingType]}
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Link to={isAdmin ? '/admin/dashboard' : '/orders'} className="text-sm font-medium text-brand-700 hover:underline">
+            ← {isAdmin ? 'Back to admin' : 'Back to orders'}
+          </Link>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">Order {order.orderCode}</p>
+          <h1 className="mt-2 font-display text-3xl text-ink-900">{order.snapshot.title}</h1>
+          <p className="mt-1 text-sm text-ink-500">
+            {SPECIES_LABELS[order.snapshot.species]} · {LISTING_TYPE_LABELS[order.snapshot.listingType]} · {order.quantity} {UNIT_LABELS[order.snapshot.unit]}
           </p>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold ring-1 ring-inset ${orderStatusStyle(order.status)}`}
-        >
+        <span className={`inline-flex rounded-full px-3 py-1.5 text-sm font-semibold ring-1 ${orderStatusStyle(order.status)}`}>
           {ORDER_STATUS_LABELS[order.status]}
         </span>
-      </header>
+      </div>
 
-      {problem ? (
-        <div className="mt-5">
-          <Alert tone="error">{problem}</Alert>
-        </div>
-      ) : null}
+      {error ? <div className="mt-6"><Alert tone="error">{error}</Alert></div> : null}
+      {note ? <div className="mt-6"><Alert tone="success">{note}</Alert></div> : null}
+      {order.disputeOpen ? <div className="mt-6"><Alert tone="info">A dispute is open on this order. Payout is suspended until admin resolves it.</Alert></div> : null}
 
-      <div className="mt-7 grid gap-8 lg:grid-cols-[1.35fr_1fr] lg:items-start">
-        <div className="min-w-0 space-y-8">
-
-          {/* Order progress timeline */}
-          <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
-            <h2 className="font-display text-lg font-semibold text-ink-900">
-              {isFarmer ? 'Order progress' : 'Where is my order?'}
-            </h2>
-            <div className="mt-5">
-              <StatusTimeline order={order} role={timelineRole} />
-            </div>
+      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-6">
+          <section className="rounded-card bg-white p-6 ring-1 ring-stone-200/80">
+            <h2 className="font-display text-xl text-ink-900">Order tracking</h2>
+            <div className="mt-6"><StatusTimeline order={order} role={timelineRole} /></div>
           </section>
 
-          {/* Delivery info — shown when delivery details exist */}
-          {order.delivery ? (
-            <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
-              <h2 className="font-display text-lg font-semibold text-ink-900">Delivery details</h2>
-              <dl className="mt-4 space-y-3 text-sm">
-                <Field label="Contact name" value={order.delivery.contactName} />
-                <Field label="Phone" value={order.delivery.contactPhone} />
-                <Field label="Address" value={`${order.delivery.address}, ${order.delivery.town}, ${order.delivery.state}`} />
-                {order.delivery.wantedDate ? (
-                  <Field label="Preferred date" value={formatDateTime(order.delivery.wantedDate)} />
-                ) : null}
-              </dl>
-              {(isBuyer || isFarmer) && order.status === 'funded' ? (
-                <p className="mt-4 rounded-xl bg-brand-50 px-4 py-3 text-xs leading-relaxed text-brand-800 ring-1 ring-inset ring-brand-200">
-                  💬 Use the chat below to agree delivery date, time and fee with the {isBuyer ? 'farmer' : 'buyer'}.
-                </p>
-              ) : null}
-              {(isBuyer || isFarmer) && order.status === 'preparing' ? (
-                <p className="mt-4 rounded-xl bg-brand-50 px-4 py-3 text-xs leading-relaxed text-brand-800 ring-1 ring-inset ring-brand-200">
-                  💬 Agree the delivery plan in the chat below — time, location, and any delivery fee.
-                </p>
-              ) : null}
+          <section className="rounded-card bg-white p-6 ring-1 ring-stone-200/80">
+            <h2 className="font-display text-xl text-ink-900">Delivery details</h2>
+            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              <Field label="Contact" value={`${order.delivery?.contactName ?? ''} · ${order.delivery?.contactPhone ?? ''}`} />
+              <Field label="Address" value={`${order.delivery?.address ?? ''}, ${order.delivery?.town ?? ''}, ${order.delivery?.state ?? ''}`} />
+              <Field label="Wanted by" value={order.delivery?.wantedDate ? formatDateTime(order.delivery.wantedDate) : 'Not set'} />
+              <Field label="Dispatched" value={order.dispatchedAt ? formatDateTime(order.dispatchedAt) : 'Not yet'} />
+              <Field label="Expected arrival" value={order.expectedDeliveryAt ? formatDateTime(order.expectedDeliveryAt) : (order.deliveryEtaValue ? `${order.deliveryEtaValue} ${order.deliveryEtaUnit}` : 'Not provided')} />
+              <Field label="Delivery note" value={order.deliveryNote || '—'} />
+            </dl>
+            <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">
+              Delivery fee, if any, is agreed directly between buyer and farmer and is not collected through HalalLivestock.
+            </p>
+          </section>
+
+          {(isBuyer || isFarmer) ? (
+            <section className="rounded-card bg-white p-6 ring-1 ring-stone-200/80">
+              <h2 className="font-display text-xl text-ink-900">Messages</h2>
+              <p className="mt-1 text-sm text-ink-500">Agree on livestock condition and delivery arrangements here. Keep payment on HalalLivestock.</p>
+              <div className="mt-4"><ChatPanel orderId={order.id} myRole={isFarmer ? 'farmer' : 'buyer'} /></div>
             </section>
           ) : null}
 
-          {/* Chat section */}
-          {partyChat ? (
-            <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
-              <h2 className="font-display text-lg font-semibold text-ink-900">Chat</h2>
-              <p className="mt-1.5 mb-5 text-sm leading-relaxed text-ink-500">
-                Talk directly with the {isBuyer ? 'farmer' : 'buyer'} here. Use this to agree on delivery details, time, and any delivery fee.
-              </p>
-              <ChatPanel orderId={order.id} myRole={isBuyer ? 'buyer' : 'farmer'} />
+          {isAdmin && (order.buyer || order.farmer) ? (
+            <section className="rounded-card bg-white p-6 ring-1 ring-stone-200/80">
+              <h2 className="font-display text-xl text-ink-900">Conversation (admin view)</h2>
+              <p className="mt-1 text-sm text-ink-500">Read-only visibility for support and dispute resolution.</p>
+              <div className="mt-4"><ChatPanel orderId={order.id} myRole="buyer" /></div>
             </section>
           ) : null}
 
-          {/* Admin: chat viewer */}
-          {isAdmin ? (
-            <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
-              <h2 className="font-display text-lg font-semibold text-ink-900">Order messages</h2>
-              <p className="mt-1.5 mb-5 text-sm leading-relaxed text-ink-500">Messages between buyer and farmer.</p>
-              <ChatPanel orderId={order.id} myRole="buyer" />
-            </section>
-          ) : null}
-
-          {/* Dispute / Report section */}
-          {partyChat ? (
-            <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
-              <h2 className="font-display text-lg font-semibold text-ink-900">Problem with this order?</h2>
+          {(isBuyer || isFarmer) ? (
+            <section id="report-problem" className="rounded-card bg-white p-6 ring-1 ring-stone-200/80">
+              <h2 className="font-display text-xl text-ink-900">Problem with this order?</h2>
+              <p className="mt-1 text-sm text-ink-500">Report issues with evidence. Disputes suspend payout until admin review.</p>
               <div className="mt-4">
                 <DisputePanel
                   orderId={order.id}
                   orderCode={order.orderCode}
                   totalKobo={order.totalKobo}
-                  canOpen={['funded', 'preparing', 'out_for_delivery', 'confirmed'].includes(order.status)}
+                  canOpen={canReport}
                   isBuyer={isBuyer}
+                  onChanged={() => void load()}
                 />
               </div>
             </section>
           ) : null}
 
+          {isAdmin && order.timeline?.length ? (
+            <section className="rounded-card bg-white p-6 ring-1 ring-stone-200/80">
+              <h2 className="font-display text-xl text-ink-900">Transaction timeline</h2>
+              <ul className="mt-4 space-y-3">
+                {order.timeline.map((event, i) => (
+                  <li key={`${event.type}-${event.at}-${i}`} className="rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-200">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-ink-900">{event.label}</p>
+                      <p className="text-xs text-ink-400">{formatDateTime(event.at)}</p>
+                    </div>
+                    <p className="mt-1 text-xs text-ink-500">{event.actorRole}{event.note ? ` · ${event.note}` : ''}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </div>
 
-        <aside className="space-y-6 lg:sticky lg:top-24">
-          {/* Money card */}
-          <div className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card">
-            <h2 className="font-display text-base font-semibold text-ink-900">Payment</h2>
-            <dl className="mt-4 space-y-2.5 text-sm">
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-ink-500">
-                  {formatNaira(order.snapshot.priceKobo)} × {order.quantity} {unit}
-                </dt>
-                <dd className="font-semibold text-ink-900">{formatNaira(order.totalKobo)}</dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4">
-                <dt className="text-ink-500">Status</dt>
-                <dd className="font-semibold text-ink-900">
-                  {order.status === 'completed'
-                    ? 'Paid to the farmer'
-                    : order.paymentState === 'held'
-                      ? 'Held safely by platform'
-                      : order.paymentState === 'refunded'
-                        ? 'Returned to you'
-                        : 'Not paid yet'}
-                </dd>
-              </div>
-              {order.paidAt ? (
-                <div className="flex items-baseline justify-between gap-4">
-                  <dt className="text-ink-500">Paid on</dt>
-                  <dd className="text-ink-900">{formatDateTime(order.paidAt)}</dd>
-                </div>
-              ) : null}
+        <aside className="space-y-4">
+          <div className="rounded-card bg-white p-6 ring-1 ring-stone-200/80">
+            <h2 className="font-display text-lg text-ink-900">Payment</h2>
+            <dl className="mt-4 space-y-3 text-sm">
+              <Field label="Total" value={formatNaira(order.totalKobo)} />
+              <Field label="Payment" value={order.paymentState === 'held' ? 'Held by HalalLivestock' : order.paymentState === 'refunded' ? 'Refunded' : 'Not paid yet'} />
+              <Field label="Payout" value={order.payoutStatus ?? 'not_eligible'} />
+              <Field label="Paid at" value={order.paidAt ? formatDateTime(order.paidAt) : '—'} />
+              {(isBuyer || isAdmin) && order.paymentReference ? <Field label="Reference" value={order.paymentReference} /> : null}
             </dl>
 
-            {order.paymentReference && (isBuyer || isAdmin) ? (
-              <p className="mt-3 break-all text-[11px] text-ink-500">Ref: {order.paymentReference}</p>
+            {canPay ? (
+              <div className="mt-5 space-y-2">
+                <Button className="w-full" onClick={() => void handlePay()} disabled={busy !== null}>{busy === 'pay' ? 'Opening...' : 'Pay now'}</Button>
+                <Button variant="secondary" className="w-full" onClick={() => void handleCheckPayment()} disabled={busy !== null}>{busy === 'check' ? 'Checking...' : 'I have paid, check status'}</Button>
+              </div>
             ) : null}
 
-            {order.note ? (
-              <p className="mt-4 whitespace-pre-line rounded-xl bg-stone-50 px-4 py-3 text-xs leading-relaxed text-ink-700 ring-1 ring-inset ring-stone-200">
-                {order.note}
-              </p>
+            {canAccept ? (
+              <div className="mt-5 rounded-xl bg-sky-50 p-4 ring-1 ring-sky-200">
+                <p className="text-sm font-medium text-sky-900">Payment received! Start preparing this livestock for delivery.</p>
+                <Button className="mt-3 w-full" onClick={() => void handleAccept()} disabled={busy !== null}>{busy === 'accept' ? 'Starting...' : 'Start Preparation'}</Button>
+              </div>
             ) : null}
 
-            <div className="mt-5 space-y-3">
-              {/* Pay button */}
-              {canPay ? (
-                <>
-                  <Button size="lg" className="w-full" isLoading={busy === 'pay'} onClick={handlePay}>
-                    <FaWallet aria-hidden="true" className="size-4" />
-                    Pay now
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="w-full"
-                    isLoading={busy === 'check'}
-                    onClick={() => run('check', async () => (await orderService.checkPayment(order.id)).order)}
-                  >
-                    I already paid — check again
-                  </Button>
-                </>
-              ) : null}
-
-              {/* Farmer: accept order */}
-              {isFarmer && order.status === 'funded' ? (
-                <Button size="lg" className="w-full" isLoading={busy === 'accept'} onClick={() => run('accept', () => orderService.accept(order.id))}>
-                  Accept this order
-                </Button>
-              ) : null}
-
-              {/* Farmer: preparing hint */}
-              {isFarmer && order.status === 'preparing' ? (
-                <p className="rounded-xl bg-brand-50 px-4 py-3 text-xs leading-relaxed text-brand-800 ring-1 ring-inset ring-brand-200">
-                  You accepted this order. Get the livestock ready and use the chat to agree delivery with the buyer.
-                </p>
-              ) : null}
-
-              {/* Farmer: payout info */}
-              {order.settlementId && (isFarmer || isAdmin) ? (
-                <p className="text-xs leading-relaxed text-ink-500">
-                  A payout record exists for this order.{' '}
-                  {isFarmer ? 'It will be released by the admin.' : 'Release it from the Payouts tab.'}
-                </p>
-              ) : null}
-
-              {/* Buyer: Mark as received */}
-              {canMarkReceived ? (
-                <div className="space-y-2">
-                  <Button
-                    size="lg"
-                    className="w-full"
-                    isLoading={busy === 'confirm'}
-                    onClick={() => run('confirm', () => orderService.confirm(order.id))}
-                  >
-                    <FaCircleCheck aria-hidden="true" className="size-4" />
-                    I received the livestock
-                  </Button>
-                  <p className="text-center text-xs text-ink-500">
-                    Only press this after you have checked and received everything.
-                  </p>
+            {canDispatch ? (
+              <form onSubmit={handleDispatch} className="mt-5 space-y-3 rounded-xl bg-brand-50 p-4 ring-1 ring-brand-200">
+                <p className="text-sm font-medium text-brand-900">Dispatch livestock</p>
+                <p className="text-xs text-brand-800">Provide expected delivery time. Do not include fabricated GPS tracking.</p>
+                <label className="block text-xs font-medium text-ink-700">Estimated delivery duration</label>
+                <div className="flex gap-2">
+                  <input type="number" min={1} max={720} value={dispatchEtaValue} onChange={(e) => setDispatchEtaValue(Number(e.target.value))} className="w-28 rounded-xl border border-stone-300 px-3 py-2 text-sm" />
+                  <select value={dispatchEtaUnit} onChange={(e) => setDispatchEtaUnit(e.target.value as 'hours' | 'days')} className="rounded-xl border border-stone-300 px-3 py-2 text-sm">
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                  </select>
                 </div>
-              ) : null}
+                <Textarea label="Dispatch note (optional)" value={dispatchNote} onChange={(e) => setDispatchNote(e.target.value)} rows={3} maxLength={500} />
+                <Button type="submit" className="w-full" disabled={busy !== null}>{busy === 'dispatch' ? 'Dispatching...' : 'Dispatch Livestock'}</Button>
+              </form>
+            ) : null}
 
-              {/* Buyer: Report non-receipt */}
-              {canReportNonReceipt && !showReportForm ? (
-                <Button variant="ghost" className="w-full" onClick={() => setShowReportForm(true)}>
-                  <FaTriangleExclamation aria-hidden="true" className="size-4 text-amber-500" />
-                  I did not receive the livestock
-                </Button>
-              ) : null}
-
-              {/* Cancel */}
-              {canCancel ? (
-                isCancelOpen ? (
-                  <div className="space-y-3 rounded-xl bg-stone-50 p-4 ring-1 ring-inset ring-stone-200">
-                    <Input
-                      label="Why are you cancelling?"
-                      value={cancelReason}
-                      onChange={(event) => setCancelReason(event.target.value)}
-                      hint="Both sides will see this."
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        isLoading={busy === 'cancel'}
-                        disabled={cancelReason.trim().length < 6}
-                        onClick={() => run('cancel', () => orderService.cancel(order.id, cancelReason))}
-                      >
-                        Cancel order
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setIsCancelOpen(false)}>
-                        Keep it
-                      </Button>
-                    </div>
+            {canConfirm ? (
+              <div className="mt-5 rounded-xl bg-emerald-50 p-4 ring-1 ring-emerald-200">
+                <p className="text-sm font-medium text-emerald-900">Have you received your livestock?</p>
+                <p className="mt-1 text-xs text-emerald-800">Confirm only when the livestock arrived and matches your agreement with the farmer.</p>
+                {!confirmOpen ? (
+                  <div className="mt-3 grid gap-2">
+                    <Button className="w-full" onClick={() => setConfirmOpen(true)} disabled={busy !== null}>Confirm Receipt</Button>
+                    <a href="#report-problem" className="block"><Button variant="secondary" className="w-full" disabled={busy !== null}>Report a Problem</Button></a>
                   </div>
                 ) : (
-                  <Button variant="ghost" className="w-full" onClick={() => setIsCancelOpen(true)}>
-                    Cancel this order
-                  </Button>
-                )
-              ) : null}
-            </div>
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs text-ink-700">Have you received the livestock and confirmed that it matches your agreement with the farmer?</p>
+                    <div className="flex gap-2">
+                      <Button className="flex-1" onClick={() => void handleConfirm()} disabled={busy !== null}>{busy === 'confirm' ? 'Confirming...' : 'Yes, confirm'}</Button>
+                      <Button variant="ghost" className="flex-1" onClick={() => setConfirmOpen(false)}>Not yet</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+
+            {canReport && !canConfirm ? (
+              <div className="mt-5">
+                <a href="#report-problem"><Button variant="secondary" className="w-full">Report a Problem</Button></a>
+              </div>
+            ) : null}
+
+            {isBuyer && canCancel ? (
+              <div className="mt-5 border-t border-stone-100 pt-4">
+                {!cancelOpen ? (
+                  <button type="button" onClick={() => setCancelOpen(true)} className="text-sm text-ink-500 underline hover:text-ink-700">Cancel this order</button>
+                ) : (
+                  <form onSubmit={handleCancel} className="space-y-3">
+                    <Textarea label="Reason for cancelling" value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={3} maxLength={300} />
+                    <div className="flex gap-2">
+                      <Button type="submit" variant="danger" size="sm" disabled={busy !== null}>{busy === 'cancel' ? 'Cancelling...' : 'Confirm cancel'}</Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setCancelOpen(false)}>Keep order</Button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            ) : null}
           </div>
 
-          {/* Non-receipt report panel */}
-          {showReportForm && canReportNonReceipt ? (
-            <div className="rounded-card bg-amber-50 p-6 ring-1 ring-amber-200 shadow-card">
-              <h2 className="font-display text-base font-semibold text-ink-900">Report: I did not receive the livestock</h2>
-              <p className="mt-2 text-sm leading-relaxed text-ink-700">
-                Your money is <strong>still safe</strong> with Halal Livestocks. The admin will be notified and will investigate.
-              </p>
-              <ul className="mt-3 space-y-1 text-xs leading-relaxed text-ink-600 list-disc list-inside">
-                <li>Transaction fees and service fees are non-refundable.</li>
-                <li>The admin may request evidence from both sides.</li>
-                <li>A refund decision is made after investigation.</li>
-              </ul>
-              <div className="mt-5 flex flex-wrap gap-2">
-                <DisputePanel
-                  orderId={order.id}
-                  orderCode={order.orderCode}
-                  totalKobo={order.totalKobo}
-                  canOpen={true}
-                  isBuyer={true}
-                  defaultReason="not_delivered"
-                  compact
-                />
-                <Button variant="ghost" size="sm" onClick={() => setShowReportForm(false)}>
-                  Go back
-                </Button>
-              </div>
-            </div>
-          ) : null}
-
-          {/* Parties card */}
-          <div className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card">
-            <h2 className="font-display text-base font-semibold text-ink-900">About this order</h2>
-            <dl className="mt-3 space-y-2 text-sm text-ink-700">
-              {order.farmer ? (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-ink-500">Farmer</dt>
-                  <dd className="font-medium">{order.farmer.fullName}</dd>
-                </div>
-              ) : null}
-              {order.buyer ? (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-ink-500">Buyer</dt>
-                  <dd className="font-medium">{order.buyer.fullName}</dd>
-                </div>
-              ) : null}
-              <div className="flex justify-between gap-2">
-                <dt className="text-ink-500">From</dt>
-                <dd className="font-medium">{order.snapshot.town}, {order.snapshot.state}</dd>
-              </div>
+          <div className="rounded-card bg-white p-6 ring-1 ring-stone-200/80">
+            <h2 className="font-display text-lg text-ink-900">Order details</h2>
+            <dl className="mt-4 space-y-3 text-sm">
+              {order.farmer ? <Field label="Farmer" value={order.farmer.fullName} /> : null}
+              {order.buyer ? <Field label="Buyer" value={order.buyer.fullName} /> : null}
+              <Field label="Quantity" value={`${order.quantity} ${UNIT_LABELS[order.snapshot.unit]}`} />
+              <Field label="From" value={`${order.snapshot.town}, ${order.snapshot.state}`} />
+              <Field label="Delivery fee" value="Agreed outside HalalLivestock" />
             </dl>
-            <Link
-              to={listingPath({ id: order.listingId, title: order.snapshot.title, species: order.snapshot.species, town: order.snapshot.town, state: order.snapshot.state })}
-              className="mt-4 inline-block text-sm font-medium text-brand-700"
-            >
-              View original listing
-            </Link>
+            <Link to={listingPath({ id: order.listingId, title: order.snapshot.title, species: order.snapshot.species, town: order.snapshot.town, state: order.snapshot.state })} className="mt-4 inline-block text-sm font-medium text-brand-700">View original listing</Link>
           </div>
 
-          {/* Safety notice for awaiting payment */}
+
+
           {order.status === 'awaiting_payment' ? (
-            <div className="rounded-card bg-stone-50 p-6 ring-1 ring-stone-200">
-              <h2 className="font-display text-base font-semibold text-ink-900">Your money is safe</h2>
-              <p className="mt-2 text-xs leading-relaxed text-ink-500">
-                When you pay, your money is held securely by Halal Livestocks — not sent to the farmer. It is only released after you confirm you received the livestock.
-              </p>
+            <div className="rounded-card bg-amber-50 p-5 ring-1 ring-amber-200">
+              <p className="text-xs font-semibold text-amber-800">🔒 How your payment is protected</p>
+              <p className="mt-1 text-xs leading-relaxed text-amber-700">Your money is held by HalalLivestock until you confirm the livestock arrived as agreed. Delivery fee is arranged directly with the farmer.</p>
             </div>
           ) : null}
 
-          {/* Safety notice once funded */}
-          {order.status !== 'awaiting_payment' && order.paymentState === 'held' ? (
+          {order.paymentState === 'held' ? (
             <div className="rounded-card bg-emerald-50 p-5 ring-1 ring-emerald-200">
-              <p className="text-xs font-semibold text-emerald-800">🔒 Your money is held safely</p>
-              <p className="mt-1 text-xs leading-relaxed text-emerald-700">
-                Halal Livestocks holds your payment until you confirm receipt.
-              </p>
+              <p className="text-xs font-semibold text-emerald-800">🔒 Payment held safely</p>
+              <p className="mt-1 text-xs leading-relaxed text-emerald-700">HalalLivestock holds this payment until delivery is confirmed and any dispute is resolved.</p>
             </div>
           ) : null}
         </aside>

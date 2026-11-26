@@ -21,9 +21,10 @@ interface DisputePanelProps {
   defaultReason?: DisputeReason;
   /** Compact mode — hides the intro paragraph and auto-opens the form. */
   compact?: boolean;
+  onChanged?: () => void;
 }
 
-export function DisputePanel({ orderId, orderCode, totalKobo, canOpen, isBuyer = false, defaultReason, compact = false }: DisputePanelProps) {
+export function DisputePanel({ orderId, orderCode, totalKobo, canOpen, isBuyer = false, defaultReason, compact = false, onChanged }: DisputePanelProps) {
   const [dispute, setDispute] = useState<Dispute | null | 'loading'>('loading');
   const [isFormOpen, setIsFormOpen] = useState(compact);
   const [reason, setReason] = useState<DisputeReason>(defaultReason ?? 'not_as_described');
@@ -56,6 +57,7 @@ export function DisputePanel({ orderId, orderCode, totalKobo, canOpen, isBuyer =
       setIsFormOpen(false);
       setDescription('');
       setFiles([]);
+      onChanged?.();
     } catch (err) {
       setProblem(err instanceof ApiRequestError ? err.message : 'That case could not be opened.');
     } finally {

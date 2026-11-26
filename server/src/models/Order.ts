@@ -9,16 +9,41 @@ export const ORDER_STATUSES = [
   'funded',
   'preparing',
   'out_for_delivery',
+  'awaiting_buyer_confirmation',
   'confirmed',
+  'awaiting_farmer_payout',
   'completed',
   'cancelled',
   'refunded',
+  'disputed',
+  'delivery_overdue',
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 /** Where the money stands, kept apart from the delivery state so a hold does not rewrite history. */
 export const ORDER_PAYMENT_STATES = ['unpaid', 'held', 'refunded'] as const;
 export type OrderPaymentState = (typeof ORDER_PAYMENT_STATES)[number];
+
+export const PREPARATION_STATUSES = ['none', 'awaiting_preparation', 'preparing', 'ready_for_dispatch'] as const;
+export type PreparationStatus = (typeof PREPARATION_STATUSES)[number];
+
+export const DELIVERY_STATUSES = ['none', 'awaiting_dispatch', 'in_transit', 'delivery_overdue', 'delivered'] as const;
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
+
+export const BUYER_CONFIRMATION_STATUSES = ['not_required', 'pending', 'confirmed', 'disputed'] as const;
+export type BuyerConfirmationStatus = (typeof BUYER_CONFIRMATION_STATUSES)[number];
+
+export const ORDER_PAYOUT_STATUSES = ['not_eligible', 'awaiting_payout', 'processing', 'paid', 'failed', 'held'] as const;
+export type OrderPayoutStatus = (typeof ORDER_PAYOUT_STATUSES)[number];
+
+export interface IOrderTimelineEvent {
+  at: Date;
+  actorId?: string;
+  actorRole: 'buyer' | 'farmer' | 'admin' | 'driver' | 'system';
+  type: string;
+  label: string;
+  note?: string;
+}
 
 export interface IOrderSnapshot {
   title: string;
@@ -50,6 +75,10 @@ export interface IOrder {
   wantedDate?: Date;
   status: OrderStatus;
   paymentState: OrderPaymentState;
+  preparationStatus: PreparationStatus;
+  deliveryStatus: DeliveryStatus;
+  buyerConfirmationStatus: BuyerConfirmationStatus;
+  payoutStatus: OrderPayoutStatus;
   paymentProvider?: string;
   paymentReference?: string;
   paidAt?: Date;
@@ -62,6 +91,10 @@ export interface IOrder {
   confirmationCode?: string;
   confirmationCodeAttempts: number;
   dispatchedAt?: Date;
+  deliveryEtaValue?: number;
+  deliveryEtaUnit?: 'hours' | 'days';
+  expectedDeliveryAt?: Date;
+  deliveryNote?: string;
   confirmedAt?: Date;
   cancelledAt?: Date;
   cancelReason?: string;
@@ -69,6 +102,7 @@ export interface IOrder {
   refundedAt?: Date;
   disputeOpen: boolean;
   settlementId?: PopulatedDoc<SettlementDoc>;
+  timeline: IOrderTimelineEvent[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -85,6 +119,18 @@ const snapshotSchema = new Schema<IOrderSnapshot>(
     coverImage: { type: String, required: true },
     town: { type: String, required: true },
     state: { type: String, required: true },
+  },
+  { _id: false }
+);
+
+const timelineEventSchema = new Schema<IOrderTimelineEvent>(
+  {
+    at: { type: Date, required: true },
+    actorId: { type: String },
+    actorRole: { type: String, enum: ['buyer', 'farmer', 'admin', 'driver', 'system'], required: true },
+    type: { type: String, required: true, trim: true, maxlength: 80 },
+    label: { type: String, required: true, trim: true, maxlength: 200 },
+    note: { type: String, trim: true, maxlength: 1000 },
   },
   { _id: false }
 );
@@ -107,6 +153,10 @@ const orderSchema = new Schema<IOrder>(
     wantedDate: Date,
     status: { type: String, enum: ORDER_STATUSES, default: 'awaiting_payment', index: true },
     paymentState: { type: String, enum: ORDER_PAYMENT_STATES, default: 'unpaid' },
+    preparationStatus: { type: String, enum: PREPARATION_STATUSES, default: 'none' },
+    deliveryStatus: { type: String, enum: DELIVERY_STATUSES, default: 'none' },
+    buyerConfirmationStatus: { type: String, enum: BUYER_CONFIRMATION_STATUSES, default: 'not_required' },
+    payoutStatus: { type: String, enum: ORDER_PAYOUT_STATUSES, default: 'not_eligible' },
     paymentProvider: String,
     paymentReference: String,
     paidAt: Date,
@@ -115,6 +165,10 @@ const orderSchema = new Schema<IOrder>(
     confirmationCode: { type: String, select: false },
     confirmationCodeAttempts: { type: Number, default: 0 },
     dispatchedAt: Date,
+    deliveryEtaValue: { type: Number, min: 1, max: 720 },
+    deliveryEtaUnit: { type: String, enum: ['hours', 'days'] },
+    expectedDeliveryAt: Date,
+    deliveryNote: { type: String, trim: true, maxlength: 500 },
     confirmedAt: Date,
     cancelledAt: Date,
     cancelReason: { type: String, trim: true, maxlength: 300 },
@@ -122,6 +176,7 @@ const orderSchema = new Schema<IOrder>(
     refundedAt: Date,
     disputeOpen: { type: Boolean, default: false },
     settlementId: { type: Schema.Types.ObjectId, ref: 'Settlement' },
+    timeline: { type: [timelineEventSchema], default: [] },
   },
   { timestamps: true }
 );
@@ -129,6 +184,61 @@ const orderSchema = new Schema<IOrder>(
 orderSchema.index({ buyerId: 1, createdAt: -1 });
 orderSchema.index({ farmerId: 1, status: 1 });
 orderSchema.index({ status: 1, createdAt: -1 });
+
+export function deriveOrderLifecycle(order: Pick<IOrder, 'status' | 'paymentState' | 'disputeOpen' | 'settlementId' | 'preparationStatus' | 'deliveryStatus' | 'buyerConfirmationStatus' | 'payoutStatus'>) {
+  const status = order.status;
+  const preparationStatus: PreparationStatus =
+    order.preparationStatus && order.preparationStatus !== 'none'
+      ? order.preparationStatus
+      : status === 'funded'
+        ? 'awaiting_preparation'
+        : status === 'preparing'
+          ? 'preparing'
+          : ['out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue', 'confirmed', 'awaiting_farmer_payout', 'completed', 'disputed'].includes(status)
+            ? 'ready_for_dispatch'
+            : 'none';
+
+  const deliveryStatus: DeliveryStatus =
+    order.deliveryStatus && order.deliveryStatus !== 'none'
+      ? order.deliveryStatus
+      : status === 'out_for_delivery'
+        ? 'in_transit'
+        : status === 'awaiting_buyer_confirmation'
+          ? 'in_transit'
+          : status === 'delivery_overdue'
+            ? 'delivery_overdue'
+            : ['confirmed', 'awaiting_farmer_payout', 'completed'].includes(status)
+              ? 'delivered'
+              : ['funded', 'preparing'].includes(status)
+                ? 'awaiting_dispatch'
+                : 'none';
+
+  const buyerConfirmationStatus: BuyerConfirmationStatus =
+    order.buyerConfirmationStatus && order.buyerConfirmationStatus !== 'not_required'
+      ? order.buyerConfirmationStatus
+      : order.disputeOpen || status === 'disputed'
+        ? 'disputed'
+        : ['confirmed', 'awaiting_farmer_payout', 'completed'].includes(status)
+          ? 'confirmed'
+          : ['out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue'].includes(status)
+            ? 'pending'
+            : 'not_required';
+
+  const payoutStatus: OrderPayoutStatus =
+    order.payoutStatus && order.payoutStatus !== 'not_eligible'
+      ? order.payoutStatus
+      : status === 'completed'
+        ? 'paid'
+        : status === 'awaiting_farmer_payout'
+          ? 'awaiting_payout'
+          : status === 'confirmed'
+            ? 'awaiting_payout'
+            : order.disputeOpen || status === 'disputed'
+              ? 'held'
+              : 'not_eligible';
+
+  return { preparationStatus, deliveryStatus, buyerConfirmationStatus, payoutStatus };
+}
 
 /**
  * The handover code goes to the buyer, who has to read it out to the driver, and to staff. Anyone
@@ -147,6 +257,7 @@ export function toPublicOrder(order: OrderDoc, viewer: { userId: string; role: s
   const isFarmer = farmerId === viewer.userId;
   const isDriver = Boolean(driverId) && driverId === viewer.userId;
   const isStaff = viewer.role === 'admin' || viewer.role === 'driver';
+  const lifecycle = deriveOrderLifecycle(order);
 
   return {
     id: order.id,
@@ -158,16 +269,31 @@ export function toPublicOrder(order: OrderDoc, viewer: { userId: string; role: s
     note: order.note,
     status: order.status,
     paymentState: order.paymentState,
+    preparationStatus: lifecycle.preparationStatus,
+    deliveryStatus: lifecycle.deliveryStatus,
+    buyerConfirmationStatus: lifecycle.buyerConfirmationStatus,
+    payoutStatus: lifecycle.payoutStatus,
     paymentReference: isStaff || isBuyer ? order.paymentReference : undefined,
     paidAt: order.paidAt,
     acceptedAt: order.acceptedAt,
     dispatchedAt: order.dispatchedAt,
+    deliveryEtaValue: order.deliveryEtaValue,
+    deliveryEtaUnit: order.deliveryEtaUnit,
+    expectedDeliveryAt: order.expectedDeliveryAt,
+    deliveryNote: order.deliveryNote,
     confirmedAt: order.confirmedAt,
     cancelledAt: order.cancelledAt,
     cancelReason: order.cancelReason,
     refundedAt: order.refundedAt,
     disputeOpen: order.disputeOpen,
     settlementId: order.settlementId ? refId(order.settlementId) : undefined,
+    timeline: (order.timeline ?? []).map((event) => ({
+      at: event.at,
+      actorRole: event.actorRole,
+      type: event.type,
+      label: event.label,
+      note: event.note,
+    })),
     /** Where the goods go. The farmer needs it to deliver, the buyer to check it, nobody else. */
     delivery: isBuyer || isFarmer || isStaff
       ? {

@@ -16,7 +16,6 @@ const NAV_LINKS = [
 const ROLE_LINKS: Partial<Record<UserRole, { to: string; label: string }>> = {
   buyer: { to: '/orders', label: 'My orders' },
   farmer: { to: '/orders', label: 'Orders' },
-  driver: { to: '/deliveries', label: 'My deliveries' },
   admin: { to: '/admin/dashboard', label: 'Admin console' },
 };
 

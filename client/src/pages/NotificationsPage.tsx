@@ -53,29 +53,36 @@ export function NotificationsPage() {
             <p className="mt-5 text-sm text-ink-500">Loading messages…</p>
           ) : messages.length === 0 ? (
             <p className="mt-5 text-sm leading-relaxed text-ink-500">
-              No conversations yet. Open an order and use its chat to agree delivery details with the other side.
+              No conversations yet. Use listing chat or order chat to discuss livestock details and delivery arrangements.
             </p>
           ) : (
             <ul className="mt-5 space-y-3">
-              {messages.map((thread) => (
-                <li key={thread.id}>
-                  <Link
-                    to={`/orders/${thread.orderId}`}
-                    className="block rounded-xl border border-stone-200 px-4 py-3.5 transition hover:border-brand-300 hover:bg-brand-50/40"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-semibold text-ink-900">Order {thread.orderCode ?? thread.orderId.slice(-6)}</p>
-                      {thread.unread > 0 ? (
-                        <span className="shrink-0 rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-bold text-white">
-                          {thread.unread}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-sm text-ink-600">{thread.lastMessageBody}</p>
-                    <p className="mt-1.5 text-[11px] text-ink-500">{formatDateTime(thread.lastMessageAt)}</p>
-                  </Link>
-                </li>
-              ))}
+              {messages.map((thread) => {
+                const isListing = thread.kind === 'listing' || (!thread.orderId && Boolean(thread.listingId));
+                const href = isListing
+                  ? `/marketplace/${thread.listingId}?thread=${thread.id}`
+                  : `/orders/${thread.orderId}`;
+                const title = isListing ? 'Listing inquiry' : `Order ${thread.orderCode ?? thread.orderId?.slice(-6) ?? ''}`;
+                return (
+                  <li key={thread.id}>
+                    <Link
+                      to={href}
+                      className="block rounded-xl border border-stone-200 px-4 py-3.5 transition hover:border-brand-300 hover:bg-brand-50/40"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-semibold text-ink-900">{title}</p>
+                        {thread.unread > 0 ? (
+                          <span className="shrink-0 rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-bold text-white">
+                            {thread.unread}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-sm text-ink-600">{thread.lastMessageBody || 'Open conversation'}</p>
+                      <p className="mt-1.5 text-[11px] text-ink-500">{formatDateTime(thread.lastMessageAt)}</p>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

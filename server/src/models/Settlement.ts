@@ -27,6 +27,7 @@ export interface ISettlement {
   reference?: string;
   releasedAt?: Date;
   releasedById?: string;
+  payoutEvidence?: string;
   note?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -52,9 +53,10 @@ const settlementSchema = new Schema<ISettlement>(
     netKobo: { type: Number, required: true, min: 0 },
     status: { type: String, enum: SETTLEMENT_STATUSES, default: 'pending', index: true },
     bank: bankSchema,
-    reference: { type: String, trim: true, maxlength: 60 },
+    reference: { type: String, trim: true, maxlength: 120 },
     releasedAt: Date,
     releasedById: String,
+    payoutEvidence: { type: String, trim: true, maxlength: 1000 },
     note: { type: String, trim: true, maxlength: 500 },
   },
   { timestamps: true }
@@ -91,6 +93,8 @@ export function toPublicSettlement(settlement: SettlementDoc) {
     bank: settlement.bank,
     reference: settlement.reference,
     releasedAt: settlement.releasedAt,
+    releasedById: settlement.releasedById,
+    payoutEvidence: settlement.payoutEvidence,
     note: settlement.note,
     createdAt: settlement.createdAt,
   };

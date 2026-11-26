@@ -7,13 +7,15 @@ import { User } from '../models/User';
 import { loadSettings } from '../models/PlatformSettings';
 import { createCheckout, newPaymentReference, verifyCheckout } from '../services/paymentService';
 import { Conversation, Message, toPublicMessage } from '../models/Chat';
-import { acceptOrder, cancelOrder, confirmByBuyer, createOrderCode, markFunded, releaseStock, reserveStock } from '../services/orderFlow';
+import { acceptOrder, cancelOrder, confirmByBuyer, createOrderCode, dispatchByFarmer, flagOverdueIfNeeded, markFunded, releaseStock, reserveStock } from '../services/orderFlow';
 import {
   cancelOrderSchema,
   createOrderSchema,
+  farmerDispatchSchema,
   orderListQuerySchema,
   type CancelOrderInput,
   type CreateOrderInput,
+  type FarmerDispatchInput,
 } from '../validation/orderSchemas';
 
 const PARTIES = 'fullName email phoneNumber';
@@ -36,6 +38,7 @@ async function findVisibleOrder(req: Request): Promise<OrderDoc> {
     String(order.driverId?._id ?? '') === viewer.userId;
 
   if (!mine && viewer.role !== 'admin') throw ApiError.forbidden('That order is not yours');
+  await flagOverdueIfNeeded(order);
   return order;
 }
 
@@ -122,6 +125,8 @@ export async function listOrders(req: Request, res: Response): Promise<void> {
       .populate('farmerId', PARTIES)
       .populate('driverId', DRIVER_FIELDS),
   ]);
+
+  await Promise.all(orders.map((order) => flagOverdueIfNeeded(order)));
 
   sendSuccess(res, {
     orders: orders.map((order) => toPublicOrder(order, viewer)),
@@ -233,5 +238,13 @@ export async function confirmReceiptByBuyer(req: Request, res: Response): Promis
 
   await confirmByBuyer(order);
   await order.populate('farmerId', PARTIES);
+  sendSuccess(res, { order: toPublicOrder(order, req.user!) });
+}
+
+export async function dispatchOrderByFarmer(req: Request, res: Response): Promise<void> {
+  const input = farmerDispatchSchema.parse(req.body) as FarmerDispatchInput;
+  const order = await findVisibleOrder(req);
+  await dispatchByFarmer(order, req.user!.userId, { etaValue: input.etaValue, etaUnit: input.etaUnit, note: input.note });
+  await order.populate('buyerId', PARTIES);
   sendSuccess(res, { order: toPublicOrder(order, req.user!) });
 }

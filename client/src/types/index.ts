@@ -191,14 +191,30 @@ export const ORDER_STATUSES = [
   'funded',
   'preparing',
   'out_for_delivery',
+  'awaiting_buyer_confirmation',
+  'delivery_overdue',
   'confirmed',
+  'awaiting_farmer_payout',
   'completed',
   'cancelled',
   'refunded',
+  'disputed',
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 export type OrderPaymentState = 'unpaid' | 'held' | 'refunded';
+export type PreparationStatus = 'none' | 'awaiting_preparation' | 'preparing' | 'ready_for_dispatch';
+export type DeliveryStatus = 'none' | 'awaiting_dispatch' | 'in_transit' | 'delivery_overdue' | 'delivered';
+export type BuyerConfirmationStatus = 'not_required' | 'pending' | 'confirmed' | 'disputed';
+export type OrderPayoutStatus = 'not_eligible' | 'awaiting_payout' | 'processing' | 'paid' | 'failed' | 'held';
+
+export interface OrderTimelineEvent {
+  at: string;
+  actorRole: 'buyer' | 'farmer' | 'admin' | 'driver' | 'system';
+  type: string;
+  label: string;
+  note?: string;
+}
 
 export interface OrderSnapshot {
   title: string;
@@ -236,16 +252,25 @@ export interface Order {
   note?: string;
   status: OrderStatus;
   paymentState: OrderPaymentState;
+  preparationStatus?: PreparationStatus;
+  deliveryStatus?: DeliveryStatus;
+  buyerConfirmationStatus?: BuyerConfirmationStatus;
+  payoutStatus?: OrderPayoutStatus;
   paymentReference?: string;
   paidAt?: string | null;
   acceptedAt?: string | null;
   dispatchedAt?: string | null;
+  deliveryEtaValue?: number | null;
+  deliveryEtaUnit?: 'hours' | 'days' | null;
+  expectedDeliveryAt?: string | null;
+  deliveryNote?: string | null;
   confirmedAt?: string | null;
   cancelledAt?: string | null;
   cancelReason?: string;
   refundedAt?: string | null;
   disputeOpen: boolean;
   settlementId?: string;
+  timeline?: OrderTimelineEvent[];
   delivery: OrderDelivery | null;
   buyer: OrderParty | null;
   farmer: OrderParty | null;
@@ -322,14 +347,18 @@ export interface ChatMessage {
 
 export interface ChatThread {
   id: string;
-  orderId: string;
+  kind?: 'order' | 'listing';
+  orderId?: string;
+  listingId?: string;
   orderCode?: string;
   role: 'buyer' | 'farmer';
 }
 
 export interface ThreadSummary {
   id: string;
-  orderId: string;
+  kind?: 'order' | 'listing';
+  orderId?: string;
+  listingId?: string;
   orderCode?: string;
   lastMessageAt: string;
   lastMessageBody: string;
@@ -354,6 +383,8 @@ export interface Settlement {
   bank?: { bankName: string; accountName: string; accountNumber: string };
   reference?: string;
   releasedAt?: string | null;
+  releasedById?: string;
+  payoutEvidence?: string;
   note?: string;
   createdAt: string;
 }

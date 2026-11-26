@@ -1,160 +1,204 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert } from '../../components/common/Alert';
-import { Button } from '../../components/common/Button';
+import { Button, Spinner } from '../../components/common/Button';
 import { AccountPanel } from '../../components/dashboard/AccountPanel';
-import { Checklist } from '../../components/dashboard/Checklist';
 import { DashboardHeader } from '../../components/dashboard/DashboardHeader';
-import { ImageTiles, type ImageTile } from '../../components/dashboard/ImageTiles';
 import { MyListings } from '../../components/dashboard/MyListings';
 import { RecentOrders } from '../../components/dashboard/RecentOrders';
 import { ReportsCard } from '../../components/dashboard/ReportsCard';
 import { VerificationCard } from '../../components/dashboard/VerificationCard';
 import { useAuth } from '../../hooks/useAuth';
+import { orderService } from '../../services/orderService';
 import { platformService } from '../../services/platformService';
-import type { PlatformInfo } from '../../types';
+import type { Order, PlatformInfo } from '../../types';
 import { formatNaira } from '../../utils/format';
-import { KYC_STATUS_LABELS } from '../../utils/orderMeta';
+import { KYC_STATUS_LABELS, ORDER_STATUS_LABELS, orderStatusStyle } from '../../utils/orderMeta';
 
-const TILES: ImageTile[] = [
-  {
-    to: '/farmer/post-livestock',
-    title: 'Post livestock',
-    body: 'One to four photos, a price and a description.',
-    image: '/images/sheep.jpg',
-    alt: 'A flock of sheep being walked home',
-  },
-  {
-    to: '/farmer/verify-farm',
-    title: 'Verify your farm',
-    body: 'An ID, a bank account in your own name, and a person reads it.',
-    image: '/images/market.jpg',
-    alt: 'Sheep on sale at a livestock market',
-  },
-  {
-    to: '/contact',
-    title: 'Contact the admin',
-    body: 'Ask about verification, payouts or a dispute.',
-    image: '/images/broilers.jpg',
-    alt: 'Young broilers inside a poultry house',
-  },
-];
+function StatCard({ label, value, hint, to }: { label: string; value: string; hint: string; to: string }) {
+  return (
+    <Link to={to} className="rounded-card bg-white p-5 ring-1 ring-stone-200 shadow-card transition hover:-translate-y-0.5 hover:shadow-lift">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{label}</p>
+      <p className="mt-2 text-2xl font-bold text-ink-900">{value}</p>
+      <p className="mt-1 text-sm text-ink-500">{hint}</p>
+    </Link>
+  );
+}
 
 export function FarmerDashboardPage() {
   const { user } = useAuth();
   const [platform, setPlatform] = useState<PlatformInfo | null>(null);
+  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    platformService
-      .info()
-      .then((data) => {
-        if (!cancelled) setPlatform(data);
-      })
-      .catch(() => {
-        if (!cancelled) setPlatform(null);
-      });
-    return () => {
-      cancelled = true;
-    };
+    platformService.info().then((d) => { if (!cancelled) setPlatform(d); }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    orderService
+      .list({ scope: 'farmer', limit: 50 })
+      .then((d) => { if (!cancelled) setOrders(d.orders); })
+      .catch(() => { if (!cancelled) setError('Could not load your order summary.'); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const summary = useMemo(() => {
+    const all = orders ?? [];
+    const needsPrep = all.filter((o) => o.status === 'funded');
+    const preparing = all.filter((o) => o.status === 'preparing');
+    const inTransit = all.filter((o) => ['out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue'].includes(o.status));
+    const awaitingPayout = all.filter((o) => ['confirmed', 'awaiting_farmer_payout'].includes(o.status) || o.payoutStatus === 'awaiting_payout');
+    const paidOut = all.filter((o) => o.status === 'completed' || o.payoutStatus === 'paid');
+    const grossPaid = paidOut.reduce((s, o) => s + o.totalKobo, 0);
+    return { needsPrep, preparing, inTransit, awaitingPayout, paidOut, grossPaid, all };
+  }, [orders]);
 
   if (!user) return null;
 
   const profile = user.farmerProfile ?? null;
   const kycStatus = profile?.status ?? 'none';
   const verified = kycStatus === 'approved';
-  const commission = platform ? `${(platform.commissionBps / 100).toFixed(0)} percent` : '5 percent';
+  const commission = platform ? `${(platform.commissionBps / 100).toFixed(2).replace(/\.00$/, '')}%` : '5%';
 
   return (
     <div>
       <DashboardHeader
-        eyebrow="Farmer account"
+        eyebrow="Farmer dashboard"
         title={`Welcome back, ${user.fullName.split(' ')[0]}`}
-        caption="Verification comes first. Once a person checks your ID and your bank details, the verified badge and the payouts unlock."
+        caption="Manage your livestock listings, prepare paid orders, dispatch deliveries, and track your payouts in one place."
         image="/images/farm.jpg"
-        alt="Broilers crowded inside a Nigerian poultry house"
+        alt="Poultry farm"
         aside={[
-          { label: 'Account', value: user.isActive ? 'Active' : 'Suspended' },
           { label: 'Verification', value: KYC_STATUS_LABELS[kycStatus] },
           { label: 'Commission', value: commission },
+          { label: 'Orders to act on', value: orders ? String(summary.needsPrep.length + summary.preparing.length) : '—' },
         ]}
       />
 
-      <div className="page-shell grid gap-8 py-12 lg:grid-cols-[1.5fr_1fr] lg:items-start">
-        <div className="min-w-0 space-y-9">
-          <RecentOrders perspective="farmer" />
+      <div className="page-shell py-12 space-y-10">
+        {error ? <Alert tone="error">{error}</Alert> : null}
 
-          <ImageTiles heading="Where to start" tiles={TILES} />
+        {!verified ? (
+          <Alert tone="info" title="Verification required for payouts">
+            You can post livestock now, but payouts are released only to verified farms.{' '}
+            <Link to="/farmer/verify-farm" className="font-semibold underline">Complete farm verification</Link>.
+          </Alert>
+        ) : null}
 
-          <MyListings />
-
-          <VerificationCard />
-
-          {!verified ? (
-            <Alert tone="info" title="Payouts wait on verification">
-              You can post stock today, but a completed order is only paid out to a farm that finished the checks.{' '}
-              <Link to="/farmer/verify-farm" className="font-semibold underline">
-                Verify your farm
-              </Link>
-            </Alert>
-          ) : null}
-
-          <Checklist
-            title="Earn the verified badge"
-            caption="A person reviews every submission. Nothing here is charged, and the badge is what buyers filter by."
-            items={[
-              {
-                label: 'Confirm your email address',
-                done: user.isEmailVerified,
-                note: 'The decision from the review team is sent here.',
-              },
-              {
-                label: 'Send your ID and bank details',
-                done: kycStatus === 'submitted' || verified,
-                note: verified
-                  ? 'Approved. Buyers see the badge.'
-                  : 'One photo of the ID and a NUBAN account in your own name. The review team checks the phone number you gave.',
-              },
-              {
-                label: 'Post your first stock',
-                done: false,
-                note: 'Live livestock and halal processed products are listed separately.',
-              },
-            ]}
-          />
-          <Link to="/farmer/verify-farm" className="inline-block">
-            <Button variant={verified ? 'ghost' : 'primary'}>
-              {verified ? 'See the details on file' : 'Verify your farm'}
-            </Button>
-          </Link>
-
-          <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
-            <h2 className="font-display text-lg font-semibold text-ink-900">What you keep</h2>
-            <p className="mt-2 text-sm leading-relaxed text-ink-500">
-              Registration, listings and messages cost nothing. The platform keeps a commission of{' '}
-              {commission} on a completed order, so a sale of {formatNaira(10_000_000)} pays you{' '}
-              {formatNaira(10_000_000 - Math.floor((10_000_000 * (platform?.commissionBps ?? 500)) / 10_000))} once the
-              buyer confirms receipt of the livestock. The rate applied to each order is written on the payout record.
-            </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              {[
-                { label: 'Registration', value: 'Free' },
-                { label: 'Listing stock', value: 'Free' },
-                { label: 'Messages with buyers', value: 'Free' },
-              ].map((item) => (
-                <div key={item.label} className="rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-inset ring-stone-200">
-                  <p className="text-xs text-ink-500">{item.label}</p>
-                  <p className="mt-0.5 text-sm font-semibold text-ink-900">{item.value}</p>
-                </div>
+        {summary.needsPrep.length > 0 ? (
+          <section className="rounded-card bg-sky-50 p-6 ring-1 ring-sky-200">
+            <h2 className="font-display text-lg font-semibold text-sky-950">Payment received! Start preparing livestock for delivery.</h2>
+            <p className="mt-1 text-sm text-sky-800">These paid orders are waiting for your preparation.</p>
+            <ul className="mt-4 space-y-3">
+              {summary.needsPrep.slice(0, 5).map((o) => (
+                <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-sky-100">
+                  <div>
+                    <p className="text-sm font-medium text-ink-900">{o.orderCode} · {o.snapshot.title}</p>
+                    <p className="text-xs text-ink-500">{o.quantity} {o.snapshot.unit} · {formatNaira(o.totalKobo)}</p>
+                  </div>
+                  <Link to={`/orders/${o.id}`}><Button size="sm">Start Preparation</Button></Link>
+                </li>
               ))}
-            </div>
+            </ul>
           </section>
+        ) : null}
 
-          <ReportsCard />
+        <section>
+          <h2 className="font-display text-xl font-semibold text-ink-900">Overview</h2>
+          <p className="mt-1 text-sm text-ink-500">Your farm operations at a glance.</p>
+          {!orders ? (
+            <div className="mt-4 grid place-items-center py-8 text-brand-600"><Spinner className="size-7" /></div>
+          ) : (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard label="Needs preparation" value={String(summary.needsPrep.length)} hint="Paid orders waiting for you to start." to="/orders" />
+              <StatCard label="In preparation/dispatch" value={String(summary.preparing.length + summary.inTransit.length)} hint="Orders being prepared or in transit." to="/orders" />
+              <StatCard label="Awaiting payout" value={String(summary.awaitingPayout.length)} hint="Confirmed deliveries awaiting admin payout." to="/orders" />
+              <StatCard label="Paid out" value={formatNaira(summary.grossPaid)} hint={`${summary.paidOut.length} completed order${summary.paidOut.length === 1 ? '' : 's'} (gross).`} to="/orders" />
+            </div>
+          )}
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-3">
+          {[
+            { to: '/farmer/post-livestock', title: 'My Livestock', body: 'Post new livestock, manage listings, and update availability.', tone: 'bg-brand-50 ring-brand-200' },
+            { to: '/orders', title: 'Orders Received', body: 'Review paid orders, start preparation, and dispatch with ETA.', tone: 'bg-amber-50 ring-amber-200' },
+            { to: '/notifications', title: 'Messages', body: 'Chat with buyers about livestock condition and delivery arrangements.', tone: 'bg-sky-50 ring-sky-200' },
+          ].map((card) => (
+            <Link key={card.to} to={card.to} className={`rounded-card p-5 ring-1 transition hover:shadow-card ${card.tone}`}>
+              <h3 className="font-display text-lg font-semibold text-ink-900">{card.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-600">{card.body}</p>
+              <span className="mt-4 inline-block text-sm font-semibold text-brand-700">Open →</span>
+            </Link>
+          ))}
+        </section>
+
+        <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr] lg:items-start">
+          <div className="min-w-0 space-y-9">
+            <RecentOrders perspective="farmer" />
+            <MyListings />
+
+            <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
+              <h2 className="font-display text-lg font-semibold text-ink-900">Earnings & payouts</h2>
+              <p className="mt-1 text-sm text-ink-500">Payouts are processed by admin after buyer confirmation. Commission is deducted per completed order.</p>
+              <dl className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-200">
+                  <dt className="text-xs text-ink-500">Awaiting payout</dt>
+                  <dd className="mt-1 text-lg font-semibold text-ink-900">{summary.awaitingPayout.length}</dd>
+                </div>
+                <div className="rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-200">
+                  <dt className="text-xs text-ink-500">Completed payouts</dt>
+                  <dd className="mt-1 text-lg font-semibold text-ink-900">{summary.paidOut.length}</dd>
+                </div>
+                <div className="rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-200">
+                  <dt className="text-xs text-ink-500">Platform commission</dt>
+                  <dd className="mt-1 text-lg font-semibold text-ink-900">{commission}</dd>
+                </div>
+              </dl>
+              {summary.awaitingPayout.length > 0 ? (
+                <ul className="mt-4 divide-y divide-stone-100">
+                  {summary.awaitingPayout.slice(0, 5).map((o) => (
+                    <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-ink-900">{o.orderCode} · {o.snapshot.title}</p>
+                        <p className="text-xs text-ink-500">{ORDER_STATUS_LABELS[o.status]}</p>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${orderStatusStyle(o.status)}`}>{o.payoutStatus === 'paid' ? 'Paid' : 'Awaiting payout'}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-sm text-ink-500">No payouts waiting right now. Confirmed deliveries will appear here until admin releases payment.</p>
+              )}
+            </section>
+
+            <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
+              <h2 className="font-display text-lg font-semibold text-ink-900">Reviews</h2>
+              <p className="mt-2 text-sm leading-relaxed text-ink-500">
+                Buyer reviews will appear here when the review system is enabled. For now, focus on accurate listings, timely preparation, and clear delivery communication.
+              </p>
+            </section>
+
+            <VerificationCard />
+            <ReportsCard />
+          </div>
+
+          <div className="space-y-6">
+            <AccountPanel />
+            <section className="rounded-card bg-brand-900 p-6 text-brand-100">
+              <h2 className="font-display text-lg font-semibold text-white">Farm operations</h2>
+              <ul className="mt-4 space-y-3 text-sm leading-relaxed">
+                <li>Start preparation only after payment is confirmed by HalalLivestock.</li>
+                <li>Agree delivery fee and arrangements with the buyer in chat; delivery fee is outside the platform.</li>
+                <li>Dispatch with a realistic ETA. Buyers will be notified.</li>
+                <li>Payout is processed by admin after the buyer confirms receipt.</li>
+              </ul>
+            </section>
+          </div>
         </div>
-
-        <AccountPanel />
       </div>
     </div>
   );

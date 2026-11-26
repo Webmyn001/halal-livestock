@@ -20,7 +20,20 @@ export const createOrderSchema = z.object({
 export const orderListQuerySchema = z.object({
   scope: z.enum(['buyer', 'farmer', 'all']).optional(),
   status: z
-    .enum(['awaiting_payment', 'funded', 'preparing', 'out_for_delivery', 'confirmed', 'completed', 'cancelled', 'refunded'])
+    .enum([
+      'awaiting_payment',
+      'funded',
+      'preparing',
+      'out_for_delivery',
+      'awaiting_buyer_confirmation',
+      'delivery_overdue',
+      'confirmed',
+      'awaiting_farmer_payout',
+      'completed',
+      'cancelled',
+      'refunded',
+      'disputed',
+    ])
     .optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
@@ -34,6 +47,12 @@ export const dispatchSchema = z.object({
   driverId: z.string().trim().min(1, 'Choose a driver'),
 });
 
+export const farmerDispatchSchema = z.object({
+  etaValue: z.coerce.number().int().min(1).max(720),
+  etaUnit: z.enum(['hours', 'days']),
+  note: z.string().trim().max(500).optional(),
+});
+
 export const handoverSchema = z.object({
   code: z
     .string()
@@ -45,4 +64,5 @@ export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
 export type OrderListQuery = z.infer<typeof orderListQuerySchema>;
 export type DispatchInput = z.infer<typeof dispatchSchema>;
+export type FarmerDispatchInput = z.infer<typeof farmerDispatchSchema>;
 export type HandoverInput = z.infer<typeof handoverSchema>;

@@ -78,12 +78,28 @@ function noticesForOrder(order: Order, role: 'buyer' | 'farmer'): TransactionNot
         ? notice(order, 'preparing', 'Get the order ready', `You accepted ${order.orderCode}. Agree delivery details with the buyer in chat.`, 'info')
         : notice(order, 'preparing', 'Farmer accepted', `The farmer is preparing ${order.orderCode}. Use chat to agree delivery.`, 'info')
     );
-  } else if (order.status === 'out_for_delivery') {
-    out.push(notice(order, 'delivery', 'Delivery being arranged', `Chat about ${order.orderCode} to agree the handover time and place.`, 'info'));
-  } else if (order.status === 'confirmed') {
-    out.push(notice(order, 'confirmed', 'Receipt confirmed', `You confirmed ${order.orderCode}. The admin will release the payout to the farm.`, 'success'));
+  } else if (order.status === 'out_for_delivery' || order.status === 'awaiting_buyer_confirmation') {
+    out.push(
+      role === 'buyer'
+        ? notice(order, 'delivery', 'Livestock in transit', `${order.orderCode} is on the way. Confirm receipt when it arrives, or report a problem.`, 'info')
+        : notice(order, 'delivery', 'Awaiting buyer confirmation', `${order.orderCode} has been dispatched. Waiting for buyer confirmation.`, 'info')
+    );
+  } else if (order.status === 'delivery_overdue') {
+    out.push(
+      role === 'buyer'
+        ? notice(order, 'overdue', 'Delivery overdue', `${order.orderCode} is past its expected delivery time. Confirm receipt or report a problem.`, 'warning')
+        : notice(order, 'overdue', 'Delivery overdue', `${order.orderCode} is overdue. Check in with the buyer through chat.`, 'warning')
+    );
+  } else if (order.status === 'confirmed' || order.status === 'awaiting_farmer_payout') {
+    out.push(
+      role === 'farmer'
+        ? notice(order, 'confirmed', 'Delivery confirmed', `${order.orderCode} was confirmed by the buyer. Payout is awaiting admin processing.`, 'success')
+        : notice(order, 'confirmed', 'Delivery confirmed', `${order.orderCode} is confirmed. Farmer payout is processed separately by admin.`, 'success')
+    );
   } else if (order.status === 'completed') {
-    out.push(notice(order, 'completed', 'Order complete', `${order.orderCode} is complete and the farmer has been paid.`, 'success'));
+    out.push(notice(order, 'completed', 'Order complete', `${order.orderCode} is complete${role === 'farmer' ? ' and your payout has been released' : ''}.`, 'success'));
+  } else if (order.status === 'disputed') {
+    out.push(notice(order, 'disputed', 'Dispute under review', `${order.orderCode} has an open dispute. Admin will review and resolve it.`, 'warning'));
   } else if (order.status === 'cancelled') {
     out.push(notice(order, 'cancelled', 'Order cancelled', `${order.orderCode} was cancelled.`, 'info'));
   }
@@ -154,9 +170,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    // Add order state notices for buyers and farmers
+    // Add order state notices for buyers and farmers (fallback when no server notice exists for that order)
     if (orderData && (user.role === 'buyer' || user.role === 'farmer')) {
-      const orderNotices = orderData.orders.flatMap((order) => noticesForOrder(order, user.role as 'buyer' | 'farmer'));
+      const serverOrderLinks = new Set(mergedNotices.map((n) => n.link).filter(Boolean));
+      const orderNotices = orderData.orders
+        .flatMap((order) => noticesForOrder(order, user.role as 'buyer' | 'farmer'))
+        .filter((n) => !n.link || !serverOrderLinks.has(n.link));
       mergedNotices.push(...orderNotices);
     }
 

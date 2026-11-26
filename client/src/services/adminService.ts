@@ -52,8 +52,17 @@ export const adminService = {
     return data.farmer;
   },
 
-  async orders(status?: string): Promise<Order[]> {
-    const data = await request<{ orders: Order[] }>({ method: 'GET', url: '/admin/orders', params: status ? { status } : {} });
+  async orders(params?: string | { status?: string; q?: string; payoutStatus?: string; dispute?: string }): Promise<Order[]> {
+    const query: Record<string, string> = {};
+    if (typeof params === 'string') {
+      if (params) query.status = params;
+    } else if (params) {
+      if (params.status) query.status = params.status;
+      if (params.q) query.q = params.q;
+      if (params.payoutStatus) query.payoutStatus = params.payoutStatus;
+      if (params.dispute) query.dispute = params.dispute;
+    }
+    const data = await request<{ orders: Order[] }>({ method: 'GET', url: '/admin/orders', params: query });
     return data.orders;
   },
 
@@ -62,11 +71,11 @@ export const adminService = {
     return data.settlements;
   },
 
-  async releaseSettlement(id: string, reference: string): Promise<Settlement> {
+  async releaseSettlement(id: string, payload: { reference: string; note?: string; payoutEvidence?: string }): Promise<Settlement> {
     const data = await request<{ settlement: Settlement }>({
       method: 'POST',
       url: `/admin/settlements/${id}/release`,
-      data: { reference },
+      data: payload,
     });
     return data.settlement;
   },

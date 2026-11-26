@@ -1,10 +1,12 @@
-import { Schema, model, type HydratedDocument, type PopulatedDoc } from 'mongoose';
+import { Schema, Types, model, type HydratedDocument, type PopulatedDoc } from 'mongoose';
 import { refId } from '../utils/refId';
 import type { OrderDoc } from './Order';
 import type { UserDoc } from './User';
 
 export interface IConversation {
-  orderId: PopulatedDoc<OrderDoc>;
+  kind: 'order' | 'listing';
+  orderId?: PopulatedDoc<OrderDoc>;
+  listingId?: Types.ObjectId;
   buyerId: PopulatedDoc<UserDoc>;
   farmerId: PopulatedDoc<UserDoc>;
   lastMessageAt: Date;
@@ -19,7 +21,9 @@ export type ConversationDoc = HydratedDocument<IConversation>;
 
 const conversationSchema = new Schema<IConversation>(
   {
-    orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true, unique: true },
+    kind: { type: String, enum: ['order', 'listing'], default: 'order', index: true },
+    orderId: { type: Schema.Types.ObjectId, ref: 'Order', index: true },
+    listingId: { type: Schema.Types.ObjectId, ref: 'Listing', index: true },
     buyerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     farmerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     lastMessageAt: { type: Date, default: () => new Date() },
@@ -29,6 +33,9 @@ const conversationSchema = new Schema<IConversation>(
   },
   { timestamps: true }
 );
+
+conversationSchema.index({ orderId: 1 }, { unique: true, sparse: true });
+conversationSchema.index({ listingId: 1, buyerId: 1 }, { unique: true, sparse: true });
 
 export interface IMessage {
   conversationId: PopulatedDoc<ConversationDoc>;
@@ -67,7 +74,9 @@ export function toPublicConversation(conversation: ConversationDoc, viewerRole: 
   const order = conversation.orderId as unknown as { orderCode?: string } | null;
   return {
     id: conversation.id,
-    orderId: refId(conversation.orderId),
+    kind: conversation.kind ?? (conversation.orderId ? 'order' : 'listing'),
+    orderId: conversation.orderId ? refId(conversation.orderId) : undefined,
+    listingId: conversation.listingId ? String(conversation.listingId) : undefined,
     orderCode: order?.orderCode,
     lastMessageAt: conversation.lastMessageAt,
     lastMessageBody: conversation.lastMessageBody,
