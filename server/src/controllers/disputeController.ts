@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { ApiError } from '../utils/ApiError';
 import { sendSuccess } from '../utils/apiResponse';
 import { logger } from '../utils/logger';
+import { refId } from '../utils/refId';
 import { Dispute, toPublicDispute, type DisputeDoc, type IDisputeImage } from '../models/Dispute';
 import { Notification } from '../models/Notification';
 import { Order, type OrderDoc } from '../models/Order';
@@ -41,8 +42,8 @@ async function storeAll(files: Express.Multer.File[], folder: string): Promise<I
 }
 
 async function partyRole(order: OrderDoc, userId: string): Promise<'buyer' | 'farmer' | null> {
-  if (String(order.buyerId) === userId) return 'buyer';
-  if (String(order.farmerId) === userId) return 'farmer';
+  if (refId(order.buyerId) === userId) return 'buyer';
+  if (refId(order.farmerId) === userId) return 'farmer';
   return null;
 }
 
@@ -111,8 +112,8 @@ export async function createDispute(req: Request, res: Response): Promise<void> 
   const farmerMsg = `A buyer reported a delivery problem for ${order.orderCode}. Payout is suspended until admin review.`;
   const adminMsg = `Buyer reported a delivery problem on ${order.orderCode}. Dispute opened - review and resolve it.`;
   await Promise.allSettled([
-    Notification.create({ userId: String(order.buyerId), title, message: buyerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
-    Notification.create({ userId: String(order.farmerId), title, message: farmerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+    Notification.create({ userId: refId(order.buyerId), title, message: buyerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+    Notification.create({ userId: refId(order.farmerId), title, message: farmerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
     Notification.create({ recipientRole: 'admin', title, message: adminMsg, tone: 'warning', link, isRead: false, readBy: [] }),
   ]);
 

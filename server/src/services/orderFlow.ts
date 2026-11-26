@@ -1,6 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { Types } from 'mongoose';
 import { ApiError } from '../utils/ApiError';
+import { refId } from '../utils/refId';
 import { logger } from '../utils/logger';
 import { Listing } from '../models/Listing';
 import { Notification } from '../models/Notification';
@@ -94,7 +95,7 @@ export async function flagOverdueIfNeeded(order: OrderDoc): Promise<boolean> {
   await order.save();
 
   const link = orderLink(order);
-  await notifyUser(String(order.buyerId), 'Delivery overdue', `Order ${order.orderCode} has passed its expected delivery time. Please confirm receipt or report a problem.`, link, 'warning');
+  await notifyUser(refId(order.buyerId), 'Delivery overdue', `Order ${order.orderCode} has passed its expected delivery time. Please confirm receipt or report a problem.`, link, 'warning');
   await notifyRole('admin', 'Delivery overdue', `Order ${order.orderCode} is overdue and needs attention.`, link, 'warning');
   return true;
 }
@@ -179,8 +180,8 @@ export async function markFunded(order: OrderDoc, reference: string, amountKobo:
   await order.save();
 
   const link = orderLink(order);
-  await notifyUser(String(order.buyerId), 'Payment successful', `Your payment for ${order.orderCode} was successful. Order is now being processed.`, link, 'success');
-  await notifyUser(String(order.farmerId), 'Payment received! Start preparing livestock', `New paid order ${order.orderCode} received. Payment has been confirmed - start preparing livestock for delivery.`, link, 'success');
+  await notifyUser(refId(order.buyerId), 'Payment successful', `Your payment for ${order.orderCode} was successful. Order is now being processed.`, link, 'success');
+  await notifyUser(refId(order.farmerId), 'Payment received! Start preparing livestock', `New paid order ${order.orderCode} received. Payment has been confirmed - start preparing livestock for delivery.`, link, 'success');
   await notifyRole('admin', 'New successful transaction', `Order ${order.orderCode} has been paid successfully and is awaiting farmer preparation.`, link, 'info');
   await notifyFarmer(order);
   return order;
@@ -195,15 +196,15 @@ export async function acceptOrder(order: OrderDoc): Promise<OrderDoc> {
   order.preparationStatus = 'preparing';
   order.deliveryStatus = 'awaiting_dispatch';
   order.acceptedAt = new Date();
-  pushTimeline(order, { actorRole: 'farmer', actorId: String(order.farmerId), type: 'preparation_started', label: 'Farmer started preparing livestock' });
+  pushTimeline(order, { actorRole: 'farmer', actorId: refId(order.farmerId), type: 'preparation_started', label: 'Farmer started preparing livestock' });
   await order.save();
-  await notifyUser(String(order.buyerId), 'Farmer is preparing your livestock', `The farmer has started preparing ${order.orderCode}.`, orderLink(order), 'info');
+  await notifyUser(refId(order.buyerId), 'Farmer is preparing your livestock', `The farmer has started preparing ${order.orderCode}.`, orderLink(order), 'info');
   await notifyRole('admin', 'Farmer started preparation', `Farmer started preparation for ${order.orderCode}.`, orderLink(order), 'info');
   return order;
 }
 
 export async function startPreparation(order: OrderDoc, actorId: string): Promise<OrderDoc> {
-  if (String(order.farmerId) !== actorId) throw ApiError.forbidden('Only the farmer can start preparation');
+  if (refId(order.farmerId) !== actorId) throw ApiError.forbidden('Only the farmer can start preparation');
   return acceptOrder(order);
 }
 
@@ -227,7 +228,7 @@ export async function dispatchOrder(order: OrderDoc, driverId: string): Promise<
   pushTimeline(order, { actorRole: 'admin', type: 'dispatched', label: 'Order dispatched with driver', note: `Driver: ${driver.fullName}` });
   await order.save();
 
-  await notifyUser(String(order.buyerId), 'Livestock dispatched', `Order ${order.orderCode} is on the way. Confirm receipt when it arrives.`, orderLink(order), 'info');
+  await notifyUser(refId(order.buyerId), 'Livestock dispatched', `Order ${order.orderCode} is on the way. Confirm receipt when it arrives.`, orderLink(order), 'info');
   await deliverCode(order, driver.fullName, code);
   return { code };
 }
@@ -237,7 +238,7 @@ export async function dispatchByFarmer(
   actorId: string,
   input: { etaValue: number; etaUnit: 'hours' | 'days'; note?: string }
 ): Promise<OrderDoc> {
-  if (String(order.farmerId) !== actorId) throw ApiError.forbidden('Only the farmer can dispatch this order');
+  if (refId(order.farmerId) !== actorId) throw ApiError.forbidden('Only the farmer can dispatch this order');
   if (!['preparing', 'funded'].includes(order.status)) {
     throw ApiError.conflict('Start preparation before dispatching this order');
   }
@@ -251,6 +252,7 @@ export async function dispatchByFarmer(
   order.preparationStatus = 'ready_for_dispatch';
   order.deliveryStatus = 'in_transit';
   order.buyerConfirmationStatus = 'pending';
+  if (!order.acceptedAt) order.acceptedAt = dispatchedAt;
   order.dispatchedAt = dispatchedAt;
   order.deliveryEtaValue = input.etaValue;
   order.deliveryEtaUnit = input.etaUnit;
@@ -266,7 +268,7 @@ export async function dispatchByFarmer(
   await order.save();
 
   await notifyUser(
-    String(order.buyerId),
+    refId(order.buyerId),
     'Your livestock is in transit',
     `Order ${order.orderCode} is in transit. Expected arrival: ${expectedDeliveryAt.toLocaleString()}. Please confirm when received.`,
     orderLink(order),
@@ -292,7 +294,7 @@ export async function confirmHandover(order: OrderDoc, code: string): Promise<Or
     throw ApiError.badRequest('That code does not match. Check it with the buyer.');
   }
 
-  return completeBuyerConfirmation(order, 'driver', String(order.driverId ?? ''));
+  return completeBuyerConfirmation(order, 'driver', refId(order.driverId));
 }
 
 export async function confirmByBuyer(order: OrderDoc): Promise<OrderDoc> {
@@ -301,7 +303,7 @@ export async function confirmByBuyer(order: OrderDoc): Promise<OrderDoc> {
     throw ApiError.conflict('You can only confirm receipt after the order has been dispatched or is ready for confirmation.');
   }
   if (order.disputeOpen) throw ApiError.conflict('This order has an open dispute. Resolve it before confirming receipt.');
-  return completeBuyerConfirmation(order, 'buyer', String(order.buyerId));
+  return completeBuyerConfirmation(order, 'buyer', refId(order.buyerId));
 }
 
 async function completeBuyerConfirmation(order: OrderDoc, actorRole: ActorRole, actorId: string): Promise<OrderDoc> {
@@ -333,8 +335,8 @@ async function completeBuyerConfirmation(order: OrderDoc, actorRole: ActorRole, 
   await order.save();
 
   const link = orderLink(order);
-  await notifyUser(String(order.buyerId), 'Delivery confirmed', `Your delivery for ${order.orderCode} has been confirmed. Thank you for choosing HalalLivestock.`, link, 'success');
-  await notifyUser(String(order.farmerId), 'Buyer confirmed delivery', `Buyer confirmed delivery for ${order.orderCode}. Awaiting admin payout processing.`, link, 'success');
+  await notifyUser(refId(order.buyerId), 'Delivery confirmed', `Your delivery for ${order.orderCode} has been confirmed. Thank you for choosing HalalLivestock.`, link, 'success');
+  await notifyUser(refId(order.farmerId), 'Buyer confirmed delivery', `Buyer confirmed delivery for ${order.orderCode}. Awaiting admin payout processing.`, link, 'success');
   await notifyRole('admin', 'Ready for payout review', `Buyer confirmed delivery for ${order.orderCode}. Payout is ready for review.`, link, 'info');
   return order;
 }
@@ -345,7 +347,7 @@ export async function cancelOrder(order: OrderDoc, reason: string): Promise<Orde
     order.cancelReason = reason;
     order.cancelledAt = new Date();
     order.payoutStatus = 'not_eligible';
-    pushTimeline(order, { actorRole: 'buyer', actorId: String(order.buyerId), type: 'cancelled', label: 'Order cancelled before payment', note: reason });
+    pushTimeline(order, { actorRole: 'buyer', actorId: refId(order.buyerId), type: 'cancelled', label: 'Order cancelled before payment', note: reason });
     await order.save();
     await releaseStock(order.listingId as Types.ObjectId, order.quantity);
     return order;
@@ -363,8 +365,8 @@ export async function cancelOrder(order: OrderDoc, reason: string): Promise<Orde
     pushTimeline(order, { actorRole: 'system', type: 'refunded', label: 'Order refunded', note: reason });
     await order.save();
     await releaseStock(order.listingId as Types.ObjectId, order.quantity);
-    await notifyUser(String(order.buyerId), 'Order refunded', `Order ${order.orderCode} was refunded.`, orderLink(order), 'warning');
-    await notifyUser(String(order.farmerId), 'Order cancelled/refunded', `Order ${order.orderCode} was cancelled and refunded.`, orderLink(order), 'warning');
+    await notifyUser(refId(order.buyerId), 'Order refunded', `Order ${order.orderCode} was refunded.`, orderLink(order), 'warning');
+    await notifyUser(refId(order.farmerId), 'Order cancelled/refunded', `Order ${order.orderCode} was cancelled and refunded.`, orderLink(order), 'warning');
     return order;
   }
 
@@ -460,8 +462,8 @@ export async function releaseSettlement(
     await Listing.updateOne({ _id: listing._id }, { $set: { status: 'sold', soldAt: new Date() } });
   }
 
-  await notifyUser(String(order.farmerId), 'Payout successful', `Payout successful for ${order.orderCode}. Funds have been transferred. Reference: ${reference}.`, orderLink(order), 'success');
-  await notifyUser(String(order.buyerId), 'Order completed', `Order ${order.orderCode} is complete. Thank you for choosing HalalLivestock.`, orderLink(order), 'success');
+  await notifyUser(refId(order.farmerId), 'Payout successful', `Payout successful for ${order.orderCode}. Funds have been transferred. Reference: ${reference}.`, orderLink(order), 'success');
+  await notifyUser(refId(order.buyerId), 'Order completed', `Order ${order.orderCode} is complete. Thank you for choosing HalalLivestock.`, orderLink(order), 'success');
   return { order, settlement };
 }
 

@@ -16,6 +16,7 @@ import {
   KYC_STATUS_LABELS,
   ORDER_STATUS_LABELS,
   orderStatusStyle,
+  payoutStatusLabel,
   settlementStatusLabel,
   disputeStatusLabel,
 } from '../../utils/orderMeta';
@@ -224,7 +225,7 @@ function OrdersTab() {
                   {order.orderCode} · {order.buyer?.fullName ?? 'Buyer'} to {order.farmer?.fullName ?? 'Farm'} · {order.quantity} {UNIT_LABELS[order.snapshot.unit]}
                 </span>
                 <span className="mt-1 block text-xs text-ink-400">
-                  Payout: {order.payoutStatus ?? 'not_eligible'}{order.disputeOpen ? ' · Dispute open' : ''}
+                  Payout: {payoutStatusLabel(order.payoutStatus)}{order.disputeOpen ? ' · Dispute open' : ''}
                 </span>
               </span>
               <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${orderStatusStyle(order.status)}`}>

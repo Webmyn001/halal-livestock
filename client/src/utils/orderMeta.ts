@@ -1,4 +1,4 @@
-import type { DisputeReason, DisputeStatus, KycStatus, Order, OrderStatus, SettlementStatus } from '../types';
+import type { DisputeReason, DisputeStatus, KycStatus, Order, OrderPayoutStatus, OrderStatus, SettlementStatus } from '../types';
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   awaiting_payment: 'Awaiting payment',
@@ -128,20 +128,18 @@ export function getBuyerTimeline(order: Order): TimelineStep[] {
 }
 
 export function getFarmerTimeline(order: Order): TimelineStep[] {
-  const paymentDone = Boolean(order.paidAt) || order.status !== 'awaiting_payment';
-  const preparingStarted = Boolean(order.acceptedAt) || ['preparing', 'out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue', 'confirmed', 'awaiting_farmer_payout', 'completed', 'disputed'].includes(order.status);
+  const paymentDone = Boolean(order.paidAt) || !['awaiting_payment', 'cancelled'].includes(order.status);
   const dispatched = Boolean(order.dispatchedAt) || ['out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue', 'confirmed', 'awaiting_farmer_payout', 'completed', 'disputed'].includes(order.status);
   const confirmed = Boolean(order.confirmedAt) || ['confirmed', 'awaiting_farmer_payout', 'completed'].includes(order.status);
   const paid = order.payoutStatus === 'paid' || order.status === 'completed';
-  const currentKey = paid ? 'paid' : confirmed ? 'awaiting_payout' : dispatched ? 'awaiting_confirmation' : preparingStarted ? 'dispatch' : paymentDone ? 'prepare' : 'waiting_payment';
+  const currentKey = paid ? 'paid' : confirmed ? 'awaiting_payout' : dispatched ? 'awaiting_confirmation' : paymentDone ? 'delivery' : 'waiting_payment';
 
   const steps: TimelineStep[] = [
-    { key: 'waiting_payment', label: 'Payment received', caption: 'Buyer payment is held by HalalLivestock. Start preparation when ready.', at: order.paidAt, state: paymentDone ? 'done' : 'current' },
-    { key: 'prepare', label: 'Start preparation', caption: 'Prepare the livestock and agree delivery details with the buyer in chat.', at: order.acceptedAt, state: preparingStarted ? 'done' : paymentDone ? 'current' : 'upcoming' },
-    { key: 'dispatch', label: 'Dispatch livestock', caption: 'Dispatch and provide expected delivery time. Delivery fee is agreed outside the platform.', at: order.dispatchedAt, state: dispatched ? 'done' : preparingStarted ? 'current' : 'upcoming' },
-    { key: 'awaiting_confirmation', label: 'Awaiting buyer confirmation', caption: 'Buyer must confirm receipt or report a problem.', at: null, state: confirmed ? 'done' : dispatched ? 'current' : 'upcoming' },
-    { key: 'awaiting_payout', label: 'Awaiting admin payout', caption: 'Delivery confirmed. Admin will review and process your payout.', at: order.confirmedAt, state: paid ? 'done' : confirmed ? 'current' : 'upcoming' },
-    { key: 'paid', label: 'Payment received', caption: 'Your payout has been successfully processed.', at: order.status === 'completed' ? (order.timeline?.find((t) => t.type === 'payout_released')?.at ?? null) : null, state: paid ? 'current' : 'upcoming' },
+    { key: 'waiting_payment', label: 'Payment received', caption: 'Buyer payment has been received. Set delivery days for the buyer.', at: order.paidAt, state: paymentDone ? 'done' : 'current' },
+    { key: 'delivery', label: 'Set delivery time', caption: 'Tell the buyer how many days delivery will take.', at: order.acceptedAt, state: dispatched ? 'done' : paymentDone ? 'current' : 'upcoming' },
+    { key: 'awaiting_confirmation', label: 'Awaiting buyer confirmation', caption: 'Livestock is on the way. Buyer will confirm when received.', at: order.dispatchedAt, state: confirmed ? 'done' : dispatched ? 'current' : 'upcoming' },
+    { key: 'awaiting_payout', label: 'Awaiting admin payout', caption: 'Buyer confirmed delivery. Admin will process your payout.', at: order.confirmedAt, state: paid ? 'done' : confirmed ? 'current' : 'upcoming' },
+    { key: 'paid', label: 'Payout received', caption: 'Your payout has been successfully processed.', at: order.status === 'completed' ? (order.timeline?.find((t) => t.type === 'payout_released')?.at ?? null) : null, state: paid ? 'current' : 'upcoming' },
   ];
   const idx = steps.findIndex((s) => s.key === currentKey);
   if (idx >= 0) for (let i = 0; i < steps.length; i += 1) { const s = steps[i]; if (s) s.state = i < idx ? 'done' : i === idx ? 'current' : 'upcoming'; }
@@ -217,6 +215,19 @@ const SETTLEMENT_STATUS_LABELS: Record<SettlementStatus, string> = {
 
 export function settlementStatusLabel(status: SettlementStatus): string {
   return SETTLEMENT_STATUS_LABELS[status];
+}
+
+const PAYOUT_STATUS_LABELS: Record<OrderPayoutStatus, string> = {
+  not_eligible: 'Not ready yet',
+  awaiting_payout: 'Awaiting admin payout',
+  processing: 'Processing',
+  paid: 'Paid to farmer',
+  failed: 'Payout failed',
+  held: 'On hold',
+};
+
+export function payoutStatusLabel(status?: OrderPayoutStatus | null): string {
+  return PAYOUT_STATUS_LABELS[status ?? 'not_eligible'];
 }
 
 export const KYC_STATUS_LABELS: Record<KycStatus, string> = {

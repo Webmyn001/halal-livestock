@@ -13,7 +13,7 @@ import type { Order } from '../types';
 import { formatDateTime, formatNaira } from '../utils/format';
 import { LISTING_TYPE_LABELS, SPECIES_LABELS, UNIT_LABELS } from '../utils/listingMeta';
 import { listingPath } from '../utils/listingUrl';
-import { ORDER_STATUS_LABELS, orderStatusStyle } from '../utils/orderMeta';
+import { ORDER_STATUS_LABELS, orderStatusStyle, payoutStatusLabel } from '../utils/orderMeta';
 
 function canBuyerCancel(status: Order['status']): boolean {
   return ['awaiting_payment', 'funded', 'preparing'].includes(status);
@@ -30,8 +30,8 @@ export function OrderDetailPage() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [dispatchEtaValue, setDispatchEtaValue] = useState(24);
-  const [dispatchEtaUnit, setDispatchEtaUnit] = useState<'hours' | 'days'>('hours');
+  const [dispatchEtaValue, setDispatchEtaValue] = useState(2);
+  const [dispatchEtaUnit] = useState<'hours' | 'days'>('days');
   const [dispatchNote, setDispatchNote] = useState('');
 
   const load = useCallback(async () => {
@@ -80,8 +80,7 @@ export function OrderDetailPage() {
   const isAdmin = user.role === 'admin';
   const canPay = isBuyer && order.status === 'awaiting_payment';
   const canCancel = (isBuyer || isAdmin) && canBuyerCancel(order.status);
-  const canAccept = isFarmer && order.status === 'funded';
-  const canDispatch = isFarmer && ['preparing', 'funded'].includes(order.status) && !order.disputeOpen;
+  const canDispatch = isFarmer && ['funded', 'preparing'].includes(order.status) && !order.disputeOpen;
   const canConfirm = isBuyer && ['out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue', 'preparing'].includes(order.status) && !order.disputeOpen;
   const canReport = isBuyer && !order.disputeOpen && ['funded', 'preparing', 'out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue', 'confirmed', 'awaiting_farmer_payout'].includes(order.status);
   const timelineRole = isFarmer ? 'farmer' : isAdmin ? 'admin' : 'buyer';
@@ -103,16 +102,7 @@ export function OrderDetailPage() {
     });
   }
 
-  async function handleAccept() {
-    if (!order) return;
-    await run('accept', async () => {
-      const next = await orderService.accept(order.id);
-      setNote('Preparation started. The buyer has been notified.');
-      return next;
-    });
-  }
-
-  async function handleDispatch(e: FormEvent<HTMLFormElement>) {
+   async function handleDispatch(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!order) return;
     await run('dispatch', async () => {
@@ -166,6 +156,35 @@ export function OrderDetailPage() {
       {error ? <div className="mt-6"><Alert tone="error">{error}</Alert></div> : null}
       {note ? <div className="mt-6"><Alert tone="success">{note}</Alert></div> : null}
       {order.disputeOpen ? <div className="mt-6"><Alert tone="info">A dispute is open on this order. Payout is suspended until admin resolves it.</Alert></div> : null}
+      {!order.disputeOpen ? (
+        <div className="mt-6 rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-900 ring-1 ring-brand-200">
+          <span className="font-semibold">Next step: </span>
+          {isBuyer ? (
+            order.status === 'awaiting_payment' ? 'Complete your payment to place this order.'
+            : ['funded', 'preparing'].includes(order.status) ? 'Wait for the farmer to set the delivery time.'
+            : ['out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue'].includes(order.status) ? 'When you receive the livestock, confirm receipt. If there is a problem, report it.'
+            : ['confirmed', 'awaiting_farmer_payout'].includes(order.status) ? 'Delivery confirmed. Admin will pay the farmer.'
+            : order.status === 'completed' ? 'Deal complete. Thank you.'
+            : order.status === 'refunded' ? 'This order was refunded.'
+            : order.status === 'cancelled' ? 'This order was cancelled.'
+            : 'Check the timeline below for updates.'
+          ) : isFarmer ? (
+            order.status === 'awaiting_payment' ? 'Waiting for buyer payment.'
+            : ['funded', 'preparing'].includes(order.status) ? 'Set how many days delivery will take.'
+            : ['out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue'].includes(order.status) ? 'Waiting for the buyer to confirm delivery.'
+            : ['confirmed', 'awaiting_farmer_payout'].includes(order.status) ? 'Buyer confirmed delivery. Waiting for admin payout.'
+            : order.status === 'completed' ? 'Payout received. Deal complete.'
+            : order.status === 'refunded' ? 'This order was refunded.'
+            : order.status === 'cancelled' ? 'This order was cancelled.'
+            : 'Check the timeline below for updates.'
+          ) : (
+            ['confirmed', 'awaiting_farmer_payout'].includes(order.status) ? 'Buyer confirmed delivery. Review and pay the farmer.'
+            : order.status === 'completed' ? 'Deal complete. Payout released.'
+            : order.status === 'disputed' ? 'Resolve the dispute before payout.'
+            : 'Monitor this transaction from the timeline below.'
+          )}
+        </div>
+      ) : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
@@ -246,7 +265,7 @@ export function OrderDetailPage() {
             <dl className="mt-4 space-y-3 text-sm">
               <Field label="Total" value={formatNaira(order.totalKobo)} />
               <Field label="Payment" value={order.paymentState === 'held' ? 'Held by HalalLivestock' : order.paymentState === 'refunded' ? 'Refunded' : 'Not paid yet'} />
-              <Field label="Payout" value={order.payoutStatus ?? 'not_eligible'} />
+              <Field label="Payout" value={payoutStatusLabel(order.payoutStatus)} />
               <Field label="Paid at" value={order.paidAt ? formatDateTime(order.paidAt) : '—'} />
               {(isBuyer || isAdmin) && order.paymentReference ? <Field label="Reference" value={order.paymentReference} /> : null}
             </dl>
@@ -258,27 +277,17 @@ export function OrderDetailPage() {
               </div>
             ) : null}
 
-            {canAccept ? (
-              <div className="mt-5 rounded-xl bg-sky-50 p-4 ring-1 ring-sky-200">
-                <p className="text-sm font-medium text-sky-900">Payment received! Start preparing this livestock for delivery.</p>
-                <Button className="mt-3 w-full" onClick={() => void handleAccept()} disabled={busy !== null}>{busy === 'accept' ? 'Starting...' : 'Start Preparation'}</Button>
-              </div>
-            ) : null}
-
             {canDispatch ? (
               <form onSubmit={handleDispatch} className="mt-5 space-y-3 rounded-xl bg-brand-50 p-4 ring-1 ring-brand-200">
-                <p className="text-sm font-medium text-brand-900">Dispatch livestock</p>
-                <p className="text-xs text-brand-800">Provide expected delivery time. Do not include fabricated GPS tracking.</p>
-                <label className="block text-xs font-medium text-ink-700">Estimated delivery duration</label>
-                <div className="flex gap-2">
-                  <input type="number" min={1} max={720} value={dispatchEtaValue} onChange={(e) => setDispatchEtaValue(Number(e.target.value))} className="w-28 rounded-xl border border-stone-300 px-3 py-2 text-sm" />
-                  <select value={dispatchEtaUnit} onChange={(e) => setDispatchEtaUnit(e.target.value as 'hours' | 'days')} className="rounded-xl border border-stone-300 px-3 py-2 text-sm">
-                    <option value="hours">Hours</option>
-                    <option value="days">Days</option>
-                  </select>
+                <p className="text-sm font-semibold text-brand-900">Payment received - start delivery</p>
+                <p className="text-xs text-brand-800">Tell the buyer how many days it will take to deliver the livestock.</p>
+                <label className="block text-xs font-medium text-ink-700">Delivery days</label>
+                <div className="flex items-center gap-2">
+                  <input type="number" min={1} max={60} value={dispatchEtaValue} onChange={(e) => setDispatchEtaValue(Number(e.target.value))} className="w-28 rounded-xl border border-stone-300 px-3 py-2 text-sm" />
+                  <span className="text-sm text-ink-600">day(s)</span>
                 </div>
-                <Textarea label="Dispatch note (optional)" value={dispatchNote} onChange={(e) => setDispatchNote(e.target.value)} rows={3} maxLength={500} />
-                <Button type="submit" className="w-full" disabled={busy !== null}>{busy === 'dispatch' ? 'Dispatching...' : 'Dispatch Livestock'}</Button>
+                <Textarea label="Note to buyer (optional)" value={dispatchNote} onChange={(e) => setDispatchNote(e.target.value)} rows={2} maxLength={500} placeholder="e.g. We will deliver to the agreed location in the morning." />
+                <Button type="submit" className="w-full" disabled={busy !== null}>{busy === 'dispatch' ? 'Saving...' : 'Confirm delivery time'}</Button>
               </form>
             ) : null}
 

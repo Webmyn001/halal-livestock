@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { ApiError } from '../utils/ApiError';
 import { sendSuccess } from '../utils/apiResponse';
 import { logger } from '../utils/logger';
+import { refId } from '../utils/refId';
 import { Complaint, toPublicComplaint } from '../models/Complaint';
 import { Dispute, toPublicDispute } from '../models/Dispute';
 import { Listing, toPublicListing } from '../models/Listing';
@@ -290,8 +291,8 @@ export async function ruleDispute(req: Request, res: Response): Promise<void> {
   const link = `/orders/${order.id}`;
   const outcomeText = input.outcome === 'refund' ? 'refunded to the buyer' : 'released for farmer payout processing';
   await Promise.allSettled([
-    Notification.create({ userId: String(order.buyerId), title: `Dispute update: ${order.orderCode}`, message: `Your dispute was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
-    Notification.create({ userId: String(order.farmerId), title: `Dispute update: ${order.orderCode}`, message: `A dispute on your order was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
+    Notification.create({ userId: refId(order.buyerId), title: `Dispute update: ${order.orderCode}`, message: `Your dispute was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
+    Notification.create({ userId: refId(order.farmerId), title: `Dispute update: ${order.orderCode}`, message: `A dispute on your order was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
   ]);
 
   logger.info('Dispute ruled', { disputeId: dispute.id, outcome: input.outcome, orderCode: order.orderCode });

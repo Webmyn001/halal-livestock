@@ -91,8 +91,8 @@ export function FarmerDashboardPage() {
 
         {summary.needsPrep.length > 0 ? (
           <section className="rounded-card bg-sky-50 p-6 ring-1 ring-sky-200">
-            <h2 className="font-display text-lg font-semibold text-sky-950">Payment received! Start preparing livestock for delivery.</h2>
-            <p className="mt-1 text-sm text-sky-800">These paid orders are waiting for your preparation.</p>
+            <h2 className="font-display text-lg font-semibold text-sky-950">Payment received! Set delivery time.</h2>
+            <p className="mt-1 text-sm text-sky-800">Tell the buyer how many days it will take to deliver these paid orders.</p>
             <ul className="mt-4 space-y-3">
               {summary.needsPrep.slice(0, 5).map((o) => (
                 <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-sky-100">
@@ -100,7 +100,7 @@ export function FarmerDashboardPage() {
                     <p className="text-sm font-medium text-ink-900">{o.orderCode} · {o.snapshot.title}</p>
                     <p className="text-xs text-ink-500">{o.quantity} {o.snapshot.unit} · {formatNaira(o.totalKobo)}</p>
                   </div>
-                  <Link to={`/orders/${o.id}`}><Button size="sm">Start Preparation</Button></Link>
+                  <Link to={`/orders/${o.id}`}><Button size="sm">Set delivery time</Button></Link>
                 </li>
               ))}
             </ul>
@@ -114,8 +114,8 @@ export function FarmerDashboardPage() {
             <div className="mt-4 grid place-items-center py-8 text-brand-600"><Spinner className="size-7" /></div>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard label="Needs preparation" value={String(summary.needsPrep.length)} hint="Paid orders waiting for you to start." to="/orders" />
-              <StatCard label="In preparation/dispatch" value={String(summary.preparing.length + summary.inTransit.length)} hint="Orders being prepared or in transit." to="/orders" />
+              <StatCard label="Needs delivery time" value={String(summary.needsPrep.length)} hint="Paid orders waiting for your delivery time." to="/orders" />
+              <StatCard label="On the way" value={String(summary.preparing.length + summary.inTransit.length)} hint="Orders being delivered to buyers." to="/orders" />
               <StatCard label="Awaiting payout" value={String(summary.awaitingPayout.length)} hint="Confirmed deliveries awaiting admin payout." to="/orders" />
               <StatCard label="Paid out" value={formatNaira(summary.grossPaid)} hint={`${summary.paidOut.length} completed order${summary.paidOut.length === 1 ? '' : 's'} (gross).`} to="/orders" />
             </div>
@@ -125,7 +125,7 @@ export function FarmerDashboardPage() {
         <section className="grid gap-4 md:grid-cols-3">
           {[
             { to: '/farmer/post-livestock', title: 'My Livestock', body: 'Post new livestock, manage listings, and update availability.', tone: 'bg-brand-50 ring-brand-200' },
-            { to: '/orders', title: 'Orders Received', body: 'Review paid orders, start preparation, and dispatch with ETA.', tone: 'bg-amber-50 ring-amber-200' },
+            { to: '/orders', title: 'Orders Received', body: 'See paid orders, set delivery days, and track buyer confirmation.', tone: 'bg-amber-50 ring-amber-200' },
             { to: '/notifications', title: 'Messages', body: 'Chat with buyers about livestock condition and delivery arrangements.', tone: 'bg-sky-50 ring-sky-200' },
           ].map((card) => (
             <Link key={card.to} to={card.to} className={`rounded-card p-5 ring-1 transition hover:shadow-card ${card.tone}`}>
@@ -191,10 +191,9 @@ export function FarmerDashboardPage() {
             <section className="rounded-card bg-brand-900 p-6 text-brand-100">
               <h2 className="font-display text-lg font-semibold text-white">Farm operations</h2>
               <ul className="mt-4 space-y-3 text-sm leading-relaxed">
-                <li>Start preparation only after payment is confirmed by HalalLivestock.</li>
+                <li>When payment is received, set how many days delivery will take.</li>
                 <li>Agree delivery fee and arrangements with the buyer in chat; delivery fee is outside the platform.</li>
-                <li>Dispatch with a realistic ETA. Buyers will be notified.</li>
-                <li>Payout is processed by admin after the buyer confirms receipt.</li>
+                <li>After the buyer confirms receipt, admin releases your payout.</li>
               </ul>
             </section>
           </div>

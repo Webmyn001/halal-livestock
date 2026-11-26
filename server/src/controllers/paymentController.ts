@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { env } from '../config/env';
 import { ApiError } from '../utils/ApiError';
 import { sendSuccess } from '../utils/apiResponse';
+import { refId } from '../utils/refId';
 import { logger } from '../utils/logger';
 import { Order } from '../models/Order';
 import { isTrustedWebhook, completeMockCheckout, verifyCheckout } from '../services/paymentService';
@@ -58,7 +59,7 @@ export async function completeMockPayment(req: Request, res: Response): Promise<
   const { reference } = mockReferenceSchema.parse(req.body);
   const order = await Order.findOne({ paymentReference: reference });
   if (!order) throw ApiError.notFound('No order matches that checkout');
-  if (String(order.buyerId) !== req.user!.userId) throw ApiError.forbidden('That checkout is not yours');
+  if (refId(order.buyerId) !== req.user!.userId) throw ApiError.forbidden('That checkout is not yours');
 
   completeMockCheckout(reference);
   const check = await verifyCheckout(reference);
