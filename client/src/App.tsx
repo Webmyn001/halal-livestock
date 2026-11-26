@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { InstallPrompt } from './components/common/InstallPrompt';
 import { Footer } from './components/layout/Footer';
 import { dashboardPath, Navbar } from './components/layout/Navbar';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -164,6 +165,7 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+      <InstallPrompt />
     </div>
   );
 }
