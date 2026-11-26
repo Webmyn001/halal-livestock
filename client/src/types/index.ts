@@ -178,6 +178,8 @@ export interface ListingPatch {
 
 export interface AppNotification {
   id: string;
+  kind?: 'order' | 'support' | 'system';
+  senderName?: string;
   title: string;
   message: string;
   tone: 'info' | 'success' | 'warning';

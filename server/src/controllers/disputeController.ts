@@ -112,9 +112,9 @@ export async function createDispute(req: Request, res: Response): Promise<void> 
   const farmerMsg = `A buyer reported a delivery problem for ${order.orderCode}. Payout is suspended until admin review.`;
   const adminMsg = `Buyer reported a delivery problem on ${order.orderCode}. Dispute opened - review and resolve it.`;
   await Promise.allSettled([
-    Notification.create({ userId: refId(order.buyerId), title, message: buyerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
-    Notification.create({ userId: refId(order.farmerId), title, message: farmerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
-    Notification.create({ recipientRole: 'admin', title, message: adminMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+    Notification.create({ userId: refId(order.buyerId), kind: 'order', title, message: buyerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+    Notification.create({ userId: refId(order.farmerId), kind: 'order', title, message: farmerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+    Notification.create({ recipientRole: 'admin', kind: 'order', title, message: adminMsg, tone: 'warning', link, isRead: false, readBy: [] }),
   ]);
 
   await dispute.populate('orderId', 'orderCode totalKobo');

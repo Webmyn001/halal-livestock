@@ -14,9 +14,12 @@ import { notificationService } from '../services/notificationService';
 import type { Order, ThreadSummary } from '../types';
 
 export type TransactionTone = 'info' | 'success' | 'warning';
+export type NoticeKind = 'order' | 'support' | 'system';
 
 export interface TransactionNotice {
   id: string;
+  kind: NoticeKind;
+  senderName?: string;
   orderId?: string;
   orderCode?: string;
   title: string;
@@ -24,6 +27,8 @@ export interface TransactionNotice {
   tone: TransactionTone;
   link?: string;
   createdAt?: string;
+  isRead: boolean;
+  serverId?: string;
 }
 
 interface NotificationsContextValue {
@@ -33,7 +38,8 @@ interface NotificationsContextValue {
   unreadNotices: number;
   loading: boolean;
   refresh: () => Promise<void>;
-  markNoticesSeen: () => void;
+  markNoticeRead: (id: string) => Promise<void>;
+  markAllRead: () => Promise<void>;
 }
 
 const MESSAGES_CHANGED = 'halal:messages-changed';
@@ -49,7 +55,7 @@ function notice(
   body: string,
   tone: TransactionTone
 ): TransactionNotice {
-  return { id: `${order.id}:${key}`, orderId: order.id, orderCode: order.orderCode, title, body, tone };
+  return { id: `${order.id}:${key}`, kind: 'order', orderId: order.id, orderCode: order.orderCode, title, body, tone, isRead: false };
 }
 
 /** Turns the current state of an order into a short, readable in-app message. */
@@ -123,13 +129,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const [messages, setMessages] = useState<ThreadSummary[]>([]);
   const [notices, setNotices] = useState<TransactionNotice[]>([]);
-  const [seenIds, setSeenIds] = useState<string[]>([]);
-  const [serverUnreadNotices, setServerUnreadNotices] = useState(0);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    setSeenIds(seenKey ? readSeen(seenKey) : []);
-  }, [seenKey]);
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -139,6 +139,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
 
     setLoading(true);
+    const localSeen = seenKey ? readSeen(seenKey) : [];
     const promises: [
       Promise<ThreadSummary[] | null>,
       Promise<{ orders: Order[] } | null>,
@@ -155,33 +156,41 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
     const mergedNotices: TransactionNotice[] = [];
 
-    // Add server in-app notifications (admin broadcasts, user notifications, contact form alerts for admin)
     if (inApp && inApp.notifications) {
-      setServerUnreadNotices(inApp.unreadCount);
       inApp.notifications.forEach((item: any) => {
         mergedNotices.push({
           id: `app:${item.id}`,
+          serverId: item.id,
+          kind: item.kind ?? 'system',
+          senderName: item.senderName,
           title: item.title,
           body: item.message,
           tone: item.tone || 'info',
           link: item.link,
           createdAt: item.createdAt,
+          isRead: Boolean(item.isRead),
         });
       });
     }
 
-    // Add order state notices for buyers and farmers (fallback when no server notice exists for that order)
     if (orderData && (user.role === 'buyer' || user.role === 'farmer')) {
       const serverOrderLinks = new Set(mergedNotices.map((n) => n.link).filter(Boolean));
       const orderNotices = orderData.orders
         .flatMap((order) => noticesForOrder(order, user.role as 'buyer' | 'farmer'))
-        .filter((n) => !n.link || !serverOrderLinks.has(n.link));
+        .filter((n) => !n.link || !serverOrderLinks.has(n.link))
+        .map((n) => ({ ...n, isRead: localSeen.includes(n.id) }));
       mergedNotices.push(...orderNotices);
     }
 
+    mergedNotices.sort((a, b) => {
+      const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bt - at;
+    });
+
     setNotices(mergedNotices);
     setLoading(false);
-  }, [user]);
+  }, [user, seenKey]);
 
   useEffect(() => {
     if (!user) {
@@ -208,24 +217,38 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     };
   }, [user, refresh]);
 
-  const markNoticesSeen = useCallback(() => {
-    if (!seenKey || notices.length === 0) return;
+  const markNoticeRead = useCallback(async (id: string) => {
+    const target = notices.find((n) => n.id === id);
+    if (!target || target.isRead) return;
+
+    if (target.serverId) {
+      notificationService.markRead(target.serverId).catch(() => {});
+    } else if (seenKey) {
+      const current = readSeen(seenKey);
+      if (!current.includes(id)) {
+        localStorage.setItem(seenKey, JSON.stringify([...current, id]));
+      }
+    }
+
+    setNotices((current) => current.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+  }, [notices, seenKey]);
+
+  const markAllRead = useCallback(async () => {
+    if (notices.length === 0) return;
     notificationService.markRead().catch(() => {});
-    setServerUnreadNotices(0);
-    setSeenIds((current) => {
+    if (seenKey) {
+      const current = readSeen(seenKey);
       const merged = Array.from(new Set([...current, ...notices.map((item) => item.id)]));
-      if (merged.length === current.length && merged.every((id, index) => id === current[index])) return current;
       localStorage.setItem(seenKey, JSON.stringify(merged));
-      return merged;
-    });
+    }
+    setNotices((current) => current.map((n) => ({ ...n, isRead: true })));
   }, [notices, seenKey]);
 
   const value = useMemo<NotificationsContextValue>(() => {
     const unreadMessages = messages.reduce((total, thread) => total + thread.unread, 0);
-    const clientUnread = notices.filter((item) => !seenIds.includes(item.id)).length;
-    const unreadNotices = Math.max(clientUnread, serverUnreadNotices);
-    return { messages, notices, unreadMessages, unreadNotices, loading, refresh, markNoticesSeen };
-  }, [messages, notices, seenIds, serverUnreadNotices, loading, refresh, markNoticesSeen]);
+    const unreadNotices = notices.filter((item) => !item.isRead).length;
+    return { messages, notices, unreadMessages, unreadNotices, loading, refresh, markNoticeRead, markAllRead };
+  }, [messages, notices, loading, refresh, markNoticeRead, markAllRead]);
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }

@@ -33,7 +33,7 @@ function pushTimeline(
 
 async function notifyUser(userId: string, title: string, message: string, link: string, tone: 'info' | 'success' | 'warning' = 'info'): Promise<void> {
   try {
-    await Notification.create({ userId, title, message, tone, link, isRead: false, readBy: [] });
+    await Notification.create({ userId, kind: 'order', title, message, tone, link, isRead: false, readBy: [] });
   } catch (err) {
     logger.error('Could not create in-app notification', { userId, title, message: (err as Error).message });
   }
@@ -41,7 +41,7 @@ async function notifyUser(userId: string, title: string, message: string, link: 
 
 async function notifyRole(role: 'admin', title: string, message: string, link: string, tone: 'info' | 'success' | 'warning' = 'info'): Promise<void> {
   try {
-    await Notification.create({ recipientRole: role, title, message, tone, link, isRead: false, readBy: [] });
+    await Notification.create({ recipientRole: role, kind: 'order', title, message, tone, link, isRead: false, readBy: [] });
   } catch (err) {
     logger.error('Could not create role notification', { role, title, message: (err as Error).message });
   }

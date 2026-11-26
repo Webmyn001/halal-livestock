@@ -78,6 +78,8 @@ export async function adminSendNotification(req: Request, res: Response): Promis
 
     await Notification.create({
       userId: String(user._id),
+      kind: 'support',
+      senderName: 'Admin Halallivestock',
       title: title.trim(),
       message: message.trim(),
       tone,
@@ -91,6 +93,8 @@ export async function adminSendNotification(req: Request, res: Response): Promis
     const targetRole = target === 'all' ? 'all' : (role || 'all');
     await Notification.create({
       recipientRole: targetRole,
+      kind: 'support',
+      senderName: 'Admin Halallivestock',
       title: title.trim(),
       message: message.trim(),
       tone,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Alert } from '../../components/common/Alert';
 import { Button, Spinner } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
@@ -24,8 +24,21 @@ import {
 const TABS = ['Overview', 'Orders', 'Transactions & Payouts', 'Cases', 'Farms', 'Complaints', 'Send Message', 'Settings'] as const;
 type Tab = (typeof TABS)[number];
 
+function tabFromQuery(value: string | null): Tab {
+  if (!value) return 'Overview';
+  const normalized = value.toLowerCase().replace(/[\s_-]+/g, '');
+  const match = TABS.find((tab) => tab.toLowerCase().replace(/[\s_-]+/g, '') === normalized);
+  return match ?? 'Overview';
+}
+
 export function AdminConsolePage() {
-  const [tab, setTab] = useState<Tab>('Overview');
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => tabFromQuery(params.get('tab')));
+
+  useEffect(() => {
+    const requested = params.get('tab');
+    if (requested) setTab(tabFromQuery(requested));
+  }, [params]);
 
   return (
     <div className="page-shell py-10 sm:py-12">

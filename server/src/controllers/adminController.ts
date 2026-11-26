@@ -129,6 +129,24 @@ export async function reviewComplaint(req: Request, res: Response): Promise<void
   complaint.handledAt = new Date();
   await complaint.save();
 
+  if (complaint.userId) {
+    try {
+      await Notification.create({
+        userId: complaint.userId,
+        kind: 'support',
+        senderName: 'Admin Halallivestock',
+        title: 'Reply from Admin Halallivestock',
+        message: input.response.trim(),
+        tone: 'info',
+        link: '/notifications',
+        isRead: false,
+        readBy: [],
+      });
+    } catch (err) {
+      logger.error('Could not create in-app support reply notification', err instanceof Error ? err.message : String(err));
+    }
+  }
+
   // The reply goes straight to the address on the report, whether or not the person has an
   // account. Delivery is fail-soft so Brevo being down cannot undo a saved decision.
   try {
@@ -291,8 +309,8 @@ export async function ruleDispute(req: Request, res: Response): Promise<void> {
   const link = `/orders/${order.id}`;
   const outcomeText = input.outcome === 'refund' ? 'refunded to the buyer' : 'released for farmer payout processing';
   await Promise.allSettled([
-    Notification.create({ userId: refId(order.buyerId), title: `Dispute update: ${order.orderCode}`, message: `Your dispute was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
-    Notification.create({ userId: refId(order.farmerId), title: `Dispute update: ${order.orderCode}`, message: `A dispute on your order was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
+    Notification.create({ userId: refId(order.buyerId), kind: 'order', title: `Dispute update: ${order.orderCode}`, message: `Your dispute was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
+    Notification.create({ userId: refId(order.farmerId), kind: 'order', title: `Dispute update: ${order.orderCode}`, message: `A dispute on your order was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
   ]);
 
   logger.info('Dispute ruled', { disputeId: dispute.id, outcome: input.outcome, orderCode: order.orderCode });

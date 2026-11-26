@@ -42,10 +42,12 @@ export async function createComplaint(req: Request, res: Response): Promise<void
   try {
     await Notification.create({
       recipientRole: 'admin',
+      kind: 'support',
+      senderName: contact.name,
       title: `Contact Message: ${contact.name}`,
       message: `${contact.name} (${contact.email}) sent a message under ${category}: "${message.slice(0, 160)}${message.length > 160 ? '...' : ''}"`,
       tone: 'info',
-      link: '/admin/dashboard',
+      link: '/admin/dashboard?tab=complaints',
     });
   } catch (err) {
     logger.error('Failed to create admin notification for contact message', { error: err });

@@ -2,10 +2,13 @@ import { Schema, model, type HydratedDocument } from 'mongoose';
 
 export type NotificationTone = 'info' | 'success' | 'warning';
 export type NotificationRole = 'buyer' | 'farmer' | 'admin' | 'all';
+export type NotificationKind = 'order' | 'support' | 'system';
 
 export interface INotification {
   userId?: string;
   recipientRole?: NotificationRole;
+  kind: NotificationKind;
+  senderName?: string;
   title: string;
   message: string;
   tone: NotificationTone;
@@ -22,6 +25,8 @@ const notificationSchema = new Schema<INotification>(
   {
     userId: { type: String, index: true },
     recipientRole: { type: String, enum: ['buyer', 'farmer', 'admin', 'all'], index: true },
+    kind: { type: String, enum: ['order', 'support', 'system'], default: 'system', index: true },
+    senderName: { type: String, trim: true, maxlength: 120 },
     title: { type: String, required: true, trim: true, maxlength: 150 },
     message: { type: String, required: true, trim: true, maxlength: 2000 },
     tone: { type: String, enum: ['info', 'success', 'warning'], default: 'info' },
@@ -45,6 +50,8 @@ export function toPublicNotification(doc: NotificationDoc, currentUserId?: strin
 
   return {
     id: String(doc._id),
+    kind: doc.kind ?? 'system',
+    senderName: doc.senderName,
     title: doc.title,
     message: doc.message,
     tone: doc.tone,
