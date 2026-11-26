@@ -68,22 +68,20 @@ export function InstallPrompt() {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[60] p-4 sm:p-5">
-      <div className="mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl bg-white p-4 shadow-lift ring-1 ring-stone-200 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-ink-900">Install HalalLivestock app</p>
-          {showIosPrompt ? (
-            <p className="mt-0.5 text-sm text-ink-500">
-              On iPhone/iPad: tap <span className="font-medium text-ink-700">Share</span>, then <span className="font-medium text-ink-700">Add to Home Screen</span>.
-            </p>
-          ) : (
-            <p className="mt-0.5 text-sm text-ink-500">Add it to your phone for quick access to orders, messages, and updates.</p>
-          )}
-        </div>
-        <div className="flex shrink-0 gap-2">
-          <Button variant="secondary" size="sm" onClick={close}>{showIosPrompt ? 'Got it' : 'Not now'}</Button>
-          {showInstallPrompt ? <Button size="sm" onClick={() => void install()}>Install</Button> : null}
-        </div>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 rounded-2xl bg-white p-4 shadow-lift ring-1 ring-stone-200 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-ink-900">Install HalalLivestock app</p>
+        {showIosPrompt ? (
+          <p className="mt-0.5 text-sm text-ink-500">
+            On iPhone/iPad: tap <span className="font-medium text-ink-700">Share</span>, then <span className="font-medium text-ink-700">Add to Home Screen</span>.
+          </p>
+        ) : (
+          <p className="mt-0.5 text-sm text-ink-500">Add it to your phone for quick access to orders, messages, and updates.</p>
+        )}
+      </div>
+      <div className="flex shrink-0 gap-2">
+        <Button variant="secondary" size="sm" onClick={close}>{showIosPrompt ? 'Got it' : 'Not now'}</Button>
+        {showInstallPrompt ? <Button size="sm" onClick={() => void install()}>Install</Button> : null}
       </div>
     </div>
   );

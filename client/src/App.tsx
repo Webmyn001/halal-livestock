@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { InstallPrompt } from './components/common/InstallPrompt';
+import { PushPrompt } from './components/common/PushPrompt';
 import { Footer } from './components/layout/Footer';
 import { dashboardPath, Navbar } from './components/layout/Navbar';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -165,7 +166,10 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
-      <InstallPrompt />
+      <div className="fixed inset-x-0 bottom-0 z-[60] flex flex-col gap-3 p-4 sm:p-5" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <PushPrompt />
+        <InstallPrompt />
+      </div>
     </div>
   );
 }
