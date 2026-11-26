@@ -6,7 +6,7 @@ import { refId } from '../utils/refId';
 import { Complaint, toPublicComplaint } from '../models/Complaint';
 import { Dispute, toPublicDispute } from '../models/Dispute';
 import { Listing, toPublicListing } from '../models/Listing';
-import { Notification } from '../models/Notification';
+import { createAppNotification } from '../services/appNotificationService';
 import { Order, toPublicOrder } from '../models/Order';
 import { loadSettings, toPublicSettings } from '../models/PlatformSettings';
 import { Settlement, toPublicSettlement } from '../models/Settlement';
@@ -131,7 +131,7 @@ export async function reviewComplaint(req: Request, res: Response): Promise<void
 
   if (complaint.userId) {
     try {
-      await Notification.create({
+      await createAppNotification({
         userId: complaint.userId,
         kind: 'support',
         senderName: 'Admin Halallivestock',
@@ -309,8 +309,8 @@ export async function ruleDispute(req: Request, res: Response): Promise<void> {
   const link = `/orders/${order.id}`;
   const outcomeText = input.outcome === 'refund' ? 'refunded to the buyer' : 'released for farmer payout processing';
   await Promise.allSettled([
-    Notification.create({ userId: refId(order.buyerId), kind: 'order', title: `Dispute update: ${order.orderCode}`, message: `Your dispute was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
-    Notification.create({ userId: refId(order.farmerId), kind: 'order', title: `Dispute update: ${order.orderCode}`, message: `A dispute on your order was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
+    createAppNotification({ userId: refId(order.buyerId), kind: 'order', title: `Dispute update: ${order.orderCode}`, message: `Your dispute was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
+    createAppNotification({ userId: refId(order.farmerId), kind: 'order', title: `Dispute update: ${order.orderCode}`, message: `A dispute on your order was resolved. Outcome: ${outcomeText}.`, tone: 'info', link, isRead: false, readBy: [] }),
   ]);
 
   logger.info('Dispute ruled', { disputeId: dispute.id, outcome: input.outcome, orderCode: order.orderCode });

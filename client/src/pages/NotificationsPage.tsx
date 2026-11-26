@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useNotifications, type TransactionNotice, type TransactionTone } from '../context/NotificationsContext';
+import { notificationService } from '../services/notificationService';
 import { formatDateTime } from '../utils/format';
 
 const TONE_BADGE: Record<TransactionTone, string> = {
@@ -106,6 +107,14 @@ export function NotificationsPage() {
   const { user } = useAuth();
   const { messages, notices, unreadMessages, unreadNotices, loading, refresh, markNoticeRead, markAllRead } = useNotifications();
   const [openId, setOpenId] = useState<string | null>(null);
+  const [pushStatus, setPushStatus] = useState<'loading' | 'unsupported' | 'unconfigured' | 'granted' | 'denied' | 'default' | 'subscribed'>('loading');
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    notificationService.pushStatus().then((s) => { if (active) setPushStatus(s); }).catch(() => { if (active) setPushStatus('unsupported'); });
+    return () => { active = false; };
+  }, []);
 
   const orderNotices = useMemo(() => notices.filter((n) => n.kind === 'order'), [notices]);
   const supportNotices = useMemo(() => notices.filter((n) => n.kind !== 'order'), [notices]);
@@ -114,6 +123,19 @@ export function NotificationsPage() {
     const next = openId === id ? null : id;
     setOpenId(next);
     if (next) void markNoticeRead(next);
+  }
+
+  async function handleEnablePush() {
+    setPushBusy(true);
+    try {
+      const result = await notificationService.enablePush();
+      if (result === 'enabled') setPushStatus('subscribed');
+      else if (result === 'denied') setPushStatus('denied');
+      else if (result === 'unconfigured') setPushStatus('unconfigured');
+      else if (result === 'unsupported') setPushStatus('unsupported');
+    } finally {
+      setPushBusy(false);
+    }
   }
 
   return (
@@ -137,6 +159,24 @@ export function NotificationsPage() {
           </button>
         </div>
       </header>
+
+      {pushStatus === 'default' || pushStatus === 'granted' ? (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brand-50 px-4 py-3 ring-1 ring-brand-200">
+          <div>
+            <p className="text-sm font-semibold text-brand-900">Enable device notifications</p>
+            <p className="text-sm text-brand-800">Get notified on your phone when there is a new order update or message.</p>
+          </div>
+          <button type="button" onClick={() => void handleEnablePush()} disabled={pushBusy} className="rounded-xl bg-brand-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:opacity-60">
+            {pushBusy ? 'Enabling...' : 'Enable notifications'}
+          </button>
+        </div>
+      ) : null}
+      {pushStatus === 'subscribed' ? (
+        <div className="mt-6 rounded-2xl bg-stone-50 px-4 py-3 text-sm text-stone-700 ring-1 ring-stone-200">Device notifications are enabled for this browser.</div>
+      ) : null}
+      {pushStatus === 'denied' ? (
+        <div className="mt-6 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">Device notifications are blocked in your browser settings. Allow notifications for this site to receive alerts.</div>
+      ) : null}
 
       <div className="mt-8 grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {user?.role !== 'admin' ? (

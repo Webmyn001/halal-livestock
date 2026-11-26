@@ -1,5 +1,7 @@
 import type { Request, Response } from 'express';
 import { Notification, toPublicNotification, type NotificationRole, type NotificationTone } from '../models/Notification';
+import { createAppNotification } from '../services/appNotificationService';
+import { getPublicVapidKey, isPushConfigured, removePushSubscription, savePushSubscription } from '../services/pushService';
 import { User } from '../models/User';
 import { ApiError } from '../utils/ApiError';
 import { sendSuccess } from '../utils/apiResponse';
@@ -76,7 +78,7 @@ export async function adminSendNotification(req: Request, res: Response): Promis
     const user = await User.findById(userId).select('email fullName isActive').lean();
     if (!user) throw ApiError.notFound('User not found');
 
-    await Notification.create({
+    await createAppNotification({
       userId: String(user._id),
       kind: 'support',
       senderName: 'Admin Halallivestock',
@@ -91,7 +93,7 @@ export async function adminSendNotification(req: Request, res: Response): Promis
     }
   } else {
     const targetRole = target === 'all' ? 'all' : (role || 'all');
-    await Notification.create({
+    await createAppNotification({
       recipientRole: targetRole,
       kind: 'support',
       senderName: 'Admin Halallivestock',
@@ -147,4 +149,40 @@ export async function adminSendNotification(req: Request, res: Response): Promis
     recipientsNotified: emailRecipients.length,
     message: `Message sent to ${emailRecipients.length} user(s) and posted to their in-app alarm notification.`,
   });
+}
+
+export async function getPushPublicKey(_req: Request, res: Response): Promise<void> {
+  sendSuccess(res, {
+    enabled: isPushConfigured(),
+    publicKey: getPublicVapidKey(),
+  });
+}
+
+export async function subscribePush(req: Request, res: Response): Promise<void> {
+  if (!isPushConfigured()) throw ApiError.badRequest('Push notifications are not configured on this server');
+
+  const { endpoint, keys, expirationTime } = req.body as {
+    endpoint?: string;
+    keys?: { p256dh?: string; auth?: string };
+    expirationTime?: number | null;
+  };
+
+  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+    throw ApiError.badRequest('Invalid push subscription payload');
+  }
+
+  await savePushSubscription(
+    req.user!.userId,
+    { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth }, expirationTime: expirationTime ?? null },
+    req.header('user-agent') ?? undefined
+  );
+
+  sendSuccess(res, { subscribed: true });
+}
+
+export async function unsubscribePush(req: Request, res: Response): Promise<void> {
+  const { endpoint } = req.body as { endpoint?: string };
+  if (!endpoint) throw ApiError.badRequest('Subscription endpoint is required');
+  await removePushSubscription(req.user!.userId, endpoint);
+  sendSuccess(res, { subscribed: false });
 }

@@ -41,6 +41,11 @@ const envSchema = z.object({
   UPLOAD_DIR: z.string().default('uploads'),
   // Local files are served by this API, so image URLs must point here rather than at the web app.
   PUBLIC_API_URL: z.string().default('http://localhost:4000'),
+
+  // Web Push (optional). When set, in-app notifications can also be sent as browser push notifications.
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().default('mailto:bellomuhyideen0001@gmail.com'),
 })
   .refine(
     (value) => value.MAIL_PROVIDER !== 'console' || value.NODE_ENV !== 'production',
@@ -76,6 +81,13 @@ const envSchema = z.object({
       message:
         'PAYSTACK_SECRET_KEY and PAYSTACK_WEBHOOK_SECRET are required when PAYMENT_PROVIDER=paystack',
       path: ['PAYSTACK_SECRET_KEY'],
+    }
+  )
+  .refine(
+    (value) => Boolean(value.VAPID_PUBLIC_KEY) === Boolean(value.VAPID_PRIVATE_KEY),
+    {
+      message: 'VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must both be set to enable web push',
+      path: ['VAPID_PUBLIC_KEY'],
     }
   );
 

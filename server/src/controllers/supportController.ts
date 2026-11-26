@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { Complaint, toPublicComplaint } from '../models/Complaint';
-import { Notification } from '../models/Notification';
+import { createAppNotification } from '../services/appNotificationService';
 import { User } from '../models/User';
 import { env } from '../config/env';
 import { sendEmail } from '../services/notificationService';
@@ -40,7 +40,7 @@ export async function createComplaint(req: Request, res: Response): Promise<void
 
   // Notify admin alarm / in-app notifications
   try {
-    await Notification.create({
+    await createAppNotification({
       recipientRole: 'admin',
       kind: 'support',
       senderName: contact.name,

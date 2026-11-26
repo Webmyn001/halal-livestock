@@ -4,7 +4,7 @@ import { sendSuccess } from '../utils/apiResponse';
 import { logger } from '../utils/logger';
 import { refId } from '../utils/refId';
 import { Dispute, toPublicDispute, type DisputeDoc, type IDisputeImage } from '../models/Dispute';
-import { Notification } from '../models/Notification';
+import { createAppNotification } from '../services/appNotificationService';
 import { Order, type OrderDoc } from '../models/Order';
 import { loadSettings } from '../models/PlatformSettings';
 import { Settlement } from '../models/Settlement';
@@ -112,9 +112,9 @@ export async function createDispute(req: Request, res: Response): Promise<void> 
   const farmerMsg = `A buyer reported a delivery problem for ${order.orderCode}. Payout is suspended until admin review.`;
   const adminMsg = `Buyer reported a delivery problem on ${order.orderCode}. Dispute opened - review and resolve it.`;
   await Promise.allSettled([
-    Notification.create({ userId: refId(order.buyerId), kind: 'order', title, message: buyerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
-    Notification.create({ userId: refId(order.farmerId), kind: 'order', title, message: farmerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
-    Notification.create({ recipientRole: 'admin', kind: 'order', title, message: adminMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+    createAppNotification({ userId: refId(order.buyerId), kind: 'order', title, message: buyerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+    createAppNotification({ userId: refId(order.farmerId), kind: 'order', title, message: farmerMsg, tone: 'warning', link, isRead: false, readBy: [] }),
+    createAppNotification({ recipientRole: 'admin', kind: 'order', title, message: adminMsg, tone: 'warning', link, isRead: false, readBy: [] }),
   ]);
 
   await dispute.populate('orderId', 'orderCode totalKobo');

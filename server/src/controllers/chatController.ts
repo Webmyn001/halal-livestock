@@ -5,6 +5,7 @@ import { Conversation, Message, toPublicConversation, toPublicMessage, type Conv
 import { Listing } from '../models/Listing';
 import { Order } from '../models/Order';
 import { sendMessageSchema, threadListQuerySchema, type SendMessageInput } from '../validation/chatSchemas';
+import { sendPushToUser } from '../services/pushService';
 
 async function findMyConversation(req: Request): Promise<{ conversation: ConversationDoc; role: 'buyer' | 'farmer' }> {
   const conversation = await Conversation.findById(req.params.id);
@@ -72,6 +73,17 @@ export async function postMessage(req: Request, res: Response): Promise<void> {
   if (role === 'buyer') conversation.farmerUnread += 1;
   else conversation.buyerUnread += 1;
   await conversation.save();
+
+  const recipientId = role === 'buyer' ? String(conversation.farmerId) : String(conversation.buyerId);
+  const url = conversation.kind === 'listing' && conversation.listingId
+    ? `/marketplace/${String(conversation.listingId)}?thread=${String(conversation._id)}`
+    : `/orders/${String(conversation.orderId)}`;
+  void sendPushToUser(recipientId, {
+    title: 'New message on Halal Livestocks',
+    body: conversation.lastMessageBody,
+    url,
+    tag: `chat:${String(conversation._id)}`,
+  }).catch(() => {});
 
   sendSuccess(res, { message: toPublicMessage(message) }, 201);
 }
