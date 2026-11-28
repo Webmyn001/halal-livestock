@@ -135,7 +135,15 @@ export function getFarmerTimeline(order: Order): TimelineStep[] {
   const currentKey = paid ? 'paid' : confirmed ? 'awaiting_payout' : dispatched ? 'awaiting_confirmation' : paymentDone ? 'delivery' : 'waiting_payment';
 
   const steps: TimelineStep[] = [
-    { key: 'waiting_payment', label: 'Payment received', caption: 'Buyer payment has been received. Set delivery days for the buyer.', at: order.paidAt, state: paymentDone ? 'done' : 'current' },
+    {
+      key: 'waiting_payment',
+      label: paymentDone ? 'Payment received' : 'Waiting for buyer payment',
+      caption: paymentDone
+        ? 'Buyer payment has been received. Set delivery days for the buyer.'
+        : 'You will be notified when the buyer completes payment.',
+      at: order.paidAt,
+      state: paymentDone ? 'done' : 'current',
+    },
     { key: 'delivery', label: 'Set delivery time', caption: 'Tell the buyer how many days delivery will take.', at: order.acceptedAt, state: dispatched ? 'done' : paymentDone ? 'current' : 'upcoming' },
     { key: 'awaiting_confirmation', label: 'Awaiting buyer confirmation', caption: 'Livestock is on the way. Buyer will confirm when received.', at: order.dispatchedAt, state: confirmed ? 'done' : dispatched ? 'current' : 'upcoming' },
     { key: 'awaiting_payout', label: 'Awaiting admin payout', caption: 'Buyer confirmed delivery. Admin will process your payout.', at: order.confirmedAt, state: paid ? 'done' : confirmed ? 'current' : 'upcoming' },
