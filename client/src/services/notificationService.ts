@@ -36,6 +36,13 @@ export const notificationService = {
     });
   },
 
+  async delete(id: string): Promise<void> {
+    await request<{ success: boolean }>({
+      method: 'DELETE',
+      url: `/notifications/in-app/${id}`,
+    });
+  },
+
   async adminSend(payload: SendNotificationPayload): Promise<{ sent: boolean; recipientsNotified: number; message: string }> {
     return request<{ sent: boolean; recipientsNotified: number; message: string }>({
       method: 'POST',

@@ -1,5 +1,7 @@
 export function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-NG', {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-NG', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',

@@ -3,6 +3,7 @@ import { verifyToken, requireRole } from '../middleware/auth';
 import {
   listNotifications,
   markNotificationsRead,
+  deleteNotification,
   adminSendNotification,
   getPushPublicKey,
   subscribePush,
@@ -15,6 +16,7 @@ notificationRouter.use(verifyToken);
 
 notificationRouter.get('/in-app', listNotifications);
 notificationRouter.post('/in-app/read', markNotificationsRead);
+notificationRouter.delete('/in-app/:id', deleteNotification);
 notificationRouter.get('/push/public-key', getPushPublicKey);
 notificationRouter.post('/push/subscribe', subscribePush);
 notificationRouter.post('/push/unsubscribe', unsubscribePush);

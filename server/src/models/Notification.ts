@@ -15,6 +15,7 @@ export interface INotification {
   link?: string;
   isRead: boolean;
   readBy: string[];
+  dismissedBy: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -33,6 +34,7 @@ const notificationSchema = new Schema<INotification>(
     link: { type: String, trim: true },
     isRead: { type: Boolean, default: false, index: true },
     readBy: { type: [String], default: [] },
+    dismissedBy: { type: [String], default: [] },
   },
   { timestamps: true }
 );

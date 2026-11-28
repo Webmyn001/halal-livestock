@@ -13,7 +13,10 @@ export async function listNotifications(req: Request, res: Response): Promise<vo
   const role = req.user!.role as NotificationRole;
 
   const docs = await Notification.find({
-    $or: [{ userId }, { recipientRole: { $in: [role, 'all'] } }],
+    $and: [
+      { $or: [{ userId }, { recipientRole: { $in: [role, 'all'] } }] },
+      { dismissedBy: { $ne: userId } },
+    ],
   })
     .sort({ createdAt: -1 })
     .limit(50);
@@ -31,7 +34,7 @@ export async function markNotificationsRead(req: Request, res: Response): Promis
 
   if (id) {
     const doc = await Notification.findById(id);
-    if (doc) {
+    if (doc && !(doc.dismissedBy ?? []).includes(userId)) {
       if (doc.userId === userId) {
         doc.isRead = true;
         await doc.save();
@@ -45,12 +48,38 @@ export async function markNotificationsRead(req: Request, res: Response): Promis
   } else {
     // Mark all as read
     await Promise.all([
-      Notification.updateMany({ userId, isRead: false }, { $set: { isRead: true } }),
+      Notification.updateMany({ userId, isRead: false, dismissedBy: { $ne: userId } }, { $set: { isRead: true } }),
       Notification.updateMany(
-        { recipientRole: { $in: [role, 'all'] }, readBy: { $ne: userId } },
+        { recipientRole: { $in: [role, 'all'] }, readBy: { $ne: userId }, dismissedBy: { $ne: userId } },
         { $addToSet: { readBy: userId } }
       ),
     ]);
+  }
+
+  sendSuccess(res, { success: true });
+}
+
+export async function deleteNotification(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.userId;
+  const role = req.user!.role as NotificationRole;
+  const { id } = req.params;
+
+  const doc = await Notification.findById(id);
+  if (!doc) throw ApiError.notFound('Notification not found');
+
+  const canSee =
+    doc.userId === userId || (doc.recipientRole && [role, 'all'].includes(doc.recipientRole));
+  const dismissedBy = doc.dismissedBy ?? [];
+  if (!canSee || dismissedBy.includes(userId)) throw ApiError.notFound('Notification not found');
+
+  if (doc.userId === userId) {
+    await doc.deleteOne();
+  } else {
+    if (!doc.readBy.includes(userId)) doc.readBy.push(userId);
+    if (!dismissedBy.includes(userId)) {
+      doc.dismissedBy = [...dismissedBy, userId];
+    }
+    await doc.save();
   }
 
   sendSuccess(res, { success: true });

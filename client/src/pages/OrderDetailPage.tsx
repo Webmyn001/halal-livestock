@@ -194,16 +194,47 @@ export function OrderDetailPage() {
           </section>
 
           <section className="rounded-card bg-white p-6 ring-1 ring-stone-200/80">
-            <h2 className="font-display text-xl text-ink-900">Delivery details</h2>
-            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <Field label="Contact" value={`${order.delivery?.contactName ?? ''} · ${order.delivery?.contactPhone ?? ''}`} />
-              <Field label="Address" value={`${order.delivery?.address ?? ''}, ${order.delivery?.town ?? ''}, ${order.delivery?.state ?? ''}`} />
-              <Field label="Wanted by" value={order.delivery?.wantedDate ? formatDateTime(order.delivery.wantedDate) : 'Not set'} />
-              <Field label="Dispatched" value={order.dispatchedAt ? formatDateTime(order.dispatchedAt) : 'Not yet'} />
-              <Field label="Expected arrival" value={order.expectedDeliveryAt ? formatDateTime(order.expectedDeliveryAt) : (order.deliveryEtaValue ? `${order.deliveryEtaValue} ${order.deliveryEtaUnit}` : 'Not provided')} />
-              <Field label="Delivery note" value={order.deliveryNote || '—'} />
-            </dl>
-            <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-700">Buyer information</p>
+                <h2 className="mt-1 font-display text-xl text-ink-900">Delivery details</h2>
+              </div>
+              <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">Order {order.orderCode}</span>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200 sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Buyer contact</p>
+                <p className="mt-2 text-sm font-semibold text-ink-900">{order.delivery?.contactName || 'Not provided'}</p>
+                <p className="mt-1 text-sm text-ink-700">{order.delivery?.contactPhone || 'No phone number'}</p>
+              </div>
+
+              <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200 sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Delivery address</p>
+                <p className="mt-2 text-sm leading-relaxed text-ink-900">
+                  {[order.delivery?.address, order.delivery?.town, order.delivery?.state].filter(Boolean).join(', ') || 'Not provided'}
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-white p-4 ring-1 ring-stone-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Wanted by</p>
+                <p className="mt-2 text-sm font-medium text-ink-900">{order.delivery?.wantedDate ? formatDateTime(order.delivery.wantedDate) : 'Not set'}</p>
+              </div>
+              <div className="rounded-xl bg-white p-4 ring-1 ring-stone-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Dispatched</p>
+                <p className="mt-2 text-sm font-medium text-ink-900">{order.dispatchedAt ? formatDateTime(order.dispatchedAt) : 'Not yet'}</p>
+              </div>
+              <div className="rounded-xl bg-white p-4 ring-1 ring-stone-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Expected arrival</p>
+                <p className="mt-2 text-sm font-medium text-ink-900">{order.expectedDeliveryAt ? formatDateTime(order.expectedDeliveryAt) : (order.deliveryEtaValue ? `${order.deliveryEtaValue} ${order.deliveryEtaUnit}` : 'Not provided')}</p>
+              </div>
+              <div className="rounded-xl bg-white p-4 ring-1 ring-stone-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Delivery note</p>
+                <p className="mt-2 text-sm leading-relaxed text-ink-900">{order.deliveryNote || '—'}</p>
+              </div>
+            </div>
+
+            <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900 ring-1 ring-amber-200">
               Delivery fee, if any, is agreed directly between buyer and farmer and is not collected through HalalLivestock.
             </p>
           </section>

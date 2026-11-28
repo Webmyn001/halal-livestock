@@ -32,42 +32,57 @@ function NoticeRow({
   item,
   open,
   onToggle,
+  onDelete,
 }: {
   item: TransactionNotice;
   open: boolean;
   onToggle: () => void;
+  onDelete: () => void;
 }) {
   const targetUrl = item.link || (item.orderId ? `/orders/${item.orderId}` : null);
   const action = actionForNotice(item);
   const state = noticeState(item);
+  const timeLabel = item.createdAt ? formatDateTime(item.createdAt) : '';
 
   return (
     <li className={`border-b border-stone-200 last:border-b-0 ${!item.isRead ? 'bg-brand-50/40' : 'bg-white'}`}>
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-stone-50 sm:px-5"
-      >
-        <span className="mt-2 flex size-2 shrink-0" aria-hidden="true">
-          <span className={`size-2 rounded-full ${item.isRead ? 'bg-transparent' : 'bg-brand-600'}`} />
-        </span>
+      <div className="flex items-start gap-3 px-4 py-3 sm:px-5">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-start gap-3 text-left transition hover:opacity-90"
+        >
+          <span className="mt-2 flex size-2 shrink-0" aria-hidden="true">
+            <span className={`size-2 rounded-full ${item.isRead ? 'bg-transparent' : 'bg-brand-600'}`} />
+          </span>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className={`truncate text-sm ${item.isRead ? 'font-medium text-ink-800' : 'font-semibold text-ink-950'}`}>
-                {item.senderName || (item.kind === 'support' ? 'Support' : item.kind === 'order' ? 'Order update' : 'Update')}
-              </p>
-              <p className={`truncate text-sm ${item.isRead ? 'text-ink-700' : 'font-medium text-ink-900'}`}>{item.title}</p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className={`truncate text-sm ${item.isRead ? 'font-medium text-ink-800' : 'font-semibold text-ink-950'}`}>
+                  {item.senderName || (item.kind === 'support' ? 'Support' : item.kind === 'order' ? 'Order update' : 'Update')}
+                </p>
+                <p className={`truncate text-sm ${item.isRead ? 'text-ink-700' : 'font-medium text-ink-900'}`}>{item.title}</p>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                {timeLabel ? <span className="text-[11px] text-ink-500">{timeLabel}</span> : null}
+                <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${state.className}`}>{state.label}</span>
+              </div>
             </div>
-            <div className="flex shrink-0 flex-col items-end gap-1">
-              <span className="text-[11px] text-ink-500">{item.createdAt ? formatDateTime(item.createdAt) : 'Just now'}</span>
-              <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${state.className}`}>{state.label}</span>
-            </div>
+            {!open ? <p className="mt-1 truncate text-sm text-ink-500">{item.body}</p> : null}
           </div>
-          {!open ? <p className="mt-1 truncate text-sm text-ink-500">{item.body}</p> : null}
-        </div>
-      </button>
+        </button>
+
+        <button
+          type="button"
+          onClick={onDelete}
+          className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-ink-400 transition hover:bg-rose-50 hover:text-rose-700"
+          aria-label="Delete notification"
+          title="Delete"
+        >
+          Delete
+        </button>
+      </div>
 
       {open ? (
         <div className="border-t border-stone-100 bg-stone-50/70 px-4 py-4 sm:px-5 sm:pl-11">
@@ -102,6 +117,7 @@ function NoticeSection({
   empty,
   openId,
   onOpen,
+  onDelete,
 }: {
   title: string;
   description: string;
@@ -109,6 +125,7 @@ function NoticeSection({
   empty: string;
   openId: string | null;
   onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
   const unread = items.filter((i) => !i.isRead).length;
   return (
@@ -126,7 +143,15 @@ function NoticeSection({
         <p className="px-4 py-6 text-sm text-ink-500 sm:px-5">{empty}</p>
       ) : (
         <ul>
-          {items.map((item) => <NoticeRow key={item.id} item={item} open={openId === item.id} onToggle={() => onOpen(item.id)} />)}
+          {items.map((item) => (
+            <NoticeRow
+              key={item.id}
+              item={item}
+              open={openId === item.id}
+              onToggle={() => onOpen(item.id)}
+              onDelete={() => onDelete(item.id)}
+            />
+          ))}
         </ul>
       )}
     </section>
@@ -135,7 +160,7 @@ function NoticeSection({
 
 export function NotificationsPage() {
   const { user } = useAuth();
-  const { messages, notices, unreadMessages, unreadNotices, loading, refresh, markNoticeRead, markAllRead } = useNotifications();
+  const { messages, notices, unreadMessages, unreadNotices, loading, refresh, markNoticeRead, markAllRead, deleteNotice } = useNotifications();
   const [openId, setOpenId] = useState<string | null>(null);
   const [pushStatus, setPushStatus] = useState<'loading' | 'unsupported' | 'unconfigured' | 'granted' | 'denied' | 'default' | 'subscribed'>('loading');
   const [pushBusy, setPushBusy] = useState(false);
@@ -153,6 +178,11 @@ export function NotificationsPage() {
     const next = openId === id ? null : id;
     setOpenId(next);
     if (next) void markNoticeRead(next);
+  }
+
+  function handleDelete(id: string) {
+    if (openId === id) setOpenId(null);
+    void deleteNotice(id);
   }
 
   async function handleEnablePush() {
@@ -238,7 +268,7 @@ export function NotificationsPage() {
                               <p className="truncate text-sm text-ink-600">{thread.lastMessageBody || 'Open conversation'}</p>
                             </div>
                             <div className="flex shrink-0 flex-col items-end gap-1">
-                              <span className="text-[11px] text-ink-500">{formatDateTime(thread.lastMessageAt)}</span>
+                              {thread.lastMessageAt ? <span className="text-[11px] text-ink-500">{formatDateTime(thread.lastMessageAt)}</span> : null}
                               <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${thread.unread > 0 ? 'bg-brand-600 text-white' : 'bg-stone-200 text-stone-700'}`}>
                                 {thread.unread > 0 ? 'Unread' : 'Read'}
                               </span>
@@ -261,6 +291,7 @@ export function NotificationsPage() {
           empty="No order updates yet."
           openId={openId}
           onOpen={handleOpen}
+          onDelete={handleDelete}
         />
 
         <NoticeSection
@@ -270,6 +301,7 @@ export function NotificationsPage() {
           empty="No support messages yet."
           openId={openId}
           onOpen={handleOpen}
+          onDelete={handleDelete}
         />
       </div>
     </div>

@@ -40,6 +40,7 @@ interface NotificationsContextValue {
   refresh: () => Promise<void>;
   markNoticeRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
+  deleteNotice: (id: string) => Promise<void>;
 }
 
 const MESSAGES_CHANGED = 'halal:messages-changed';
@@ -244,11 +245,26 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setNotices((current) => current.map((n) => ({ ...n, isRead: true })));
   }, [notices, seenKey]);
 
+  const deleteNotice = useCallback(async (id: string) => {
+    const target = notices.find((n) => n.id === id);
+    if (!target) return;
+
+    if (target.serverId) {
+      notificationService.delete(target.serverId).catch(() => {});
+    } else if (seenKey) {
+      const current = readSeen(seenKey);
+      const merged = Array.from(new Set([...current, id]));
+      localStorage.setItem(seenKey, JSON.stringify(merged));
+    }
+
+    setNotices((current) => current.filter((n) => n.id !== id));
+  }, [notices, seenKey]);
+
   const value = useMemo<NotificationsContextValue>(() => {
     const unreadMessages = messages.reduce((total, thread) => total + thread.unread, 0);
     const unreadNotices = notices.filter((item) => !item.isRead).length;
-    return { messages, notices, unreadMessages, unreadNotices, loading, refresh, markNoticeRead, markAllRead };
-  }, [messages, notices, loading, refresh, markNoticeRead, markAllRead]);
+    return { messages, notices, unreadMessages, unreadNotices, loading, refresh, markNoticeRead, markAllRead, deleteNotice };
+  }, [messages, notices, loading, refresh, markNoticeRead, markAllRead, deleteNotice]);
 
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }
