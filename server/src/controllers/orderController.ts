@@ -7,6 +7,7 @@ import { User } from '../models/User';
 import { loadSettings } from '../models/PlatformSettings';
 import { createCheckout, newPaymentReference, verifyCheckout } from '../services/paymentService';
 import { Conversation, Message, toPublicMessage } from '../models/Chat';
+import { createAppNotification } from '../services/appNotificationService';
 import { acceptOrder, cancelOrder, confirmByBuyer, createOrderCode, dispatchByFarmer, flagOverdueIfNeeded, markFunded, releaseStock, reserveStock } from '../services/orderFlow';
 import {
   cancelOrderSchema,
@@ -247,4 +248,38 @@ export async function dispatchOrderByFarmer(req: Request, res: Response): Promis
   await dispatchByFarmer(order, req.user!.userId, { etaValue: input.etaValue, etaUnit: input.etaUnit, note: input.note });
   await order.populate('buyerId', PARTIES);
   sendSuccess(res, { order: toPublicOrder(order, req.user!) });
+}
+
+export async function remindAdminPayout(req: Request, res: Response): Promise<void> {
+  const order = await findVisibleOrder(req);
+  const viewerId = req.user!.userId;
+
+  const farmerId = String((order.farmerId as any)?._id ?? order.farmerId ?? '');
+  if (farmerId !== viewerId) throw ApiError.forbidden('Only the farmer can send this reminder');
+
+  if (order.payoutStatus === 'paid' || order.status === 'completed') {
+    throw ApiError.conflict('This payout has already been processed');
+  }
+  if (!['confirmed', 'awaiting_farmer_payout'].includes(order.status)) {
+    throw ApiError.conflict('This order is not awaiting admin payout yet');
+  }
+
+  const farmerName = (order.farmerId as any)?.fullName || 'Farmer';
+  const buyerName = (order.buyerId as any)?.fullName || 'Buyer';
+  const livestock = order.snapshot?.title || 'Livestock';
+  const link = `/orders/${String(order._id)}`;
+
+  await createAppNotification({
+    recipientRole: 'admin',
+    kind: 'support',
+    senderName: farmerName,
+    title: `Payout reminder: ${order.orderCode}`,
+    message: `Reminder: payout pending for ${order.orderCode}. Farmer: ${farmerName}. Buyer: ${buyerName}. Livestock: ${livestock}. Buyer has confirmed delivery; please review and pay farmer.`,
+    tone: 'warning',
+    link,
+    isRead: false,
+    readBy: [],
+  });
+
+  sendSuccess(res, { success: true, message: 'Reminder sent to admin.' });
 }

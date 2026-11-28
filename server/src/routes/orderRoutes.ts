@@ -12,6 +12,7 @@ import {
   getOrderThread,
   listOrders,
   refreshPayment,
+  remindAdminPayout,
   startPayment,
 } from '../controllers/orderController';
 import { cancelOrderSchema, createOrderSchema, farmerDispatchSchema } from '../validation/orderSchemas';
@@ -36,5 +37,6 @@ orderRouter.post('/:id/pay', requireSessionRole('buyer'), startPayment);
 orderRouter.post('/:id/payment-check', requireSessionRole('buyer'), refreshPayment);
 orderRouter.post('/:id/accept', requireSessionRole('farmer'), acceptOrderByFarmer);
 orderRouter.post('/:id/dispatch', requireSessionRole('farmer'), validateBody(farmerDispatchSchema), dispatchOrderByFarmer);
+orderRouter.post('/:id/remind-payout', requireSessionRole('farmer'), remindAdminPayout);
 orderRouter.post('/:id/confirm', requireSessionRole('buyer'), confirmReceiptByBuyer);
 orderRouter.post('/:id/cancel', requireSessionRole('buyer', 'admin'), validateBody(cancelOrderSchema), cancelOrderByBuyer);

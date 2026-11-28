@@ -33,6 +33,7 @@ export function OrderDetailPage() {
   const [dispatchEtaValue, setDispatchEtaValue] = useState(2);
   const [dispatchEtaUnit] = useState<'hours' | 'days'>('days');
   const [dispatchNote, setDispatchNote] = useState('');
+  const [remindOpen, setRemindOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -83,6 +84,7 @@ export function OrderDetailPage() {
   const canDispatch = isFarmer && ['funded', 'preparing'].includes(order.status) && !order.disputeOpen;
   const canConfirm = isBuyer && ['out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue', 'preparing'].includes(order.status) && !order.disputeOpen;
   const canReport = isBuyer && !order.disputeOpen && ['funded', 'preparing', 'out_for_delivery', 'awaiting_buyer_confirmation', 'delivery_overdue', 'confirmed', 'awaiting_farmer_payout'].includes(order.status);
+  const canRemindPayout = isFarmer && !order.disputeOpen && order.payoutStatus !== 'paid' && ['confirmed', 'awaiting_farmer_payout'].includes(order.status);
   const timelineRole = isFarmer ? 'farmer' : isAdmin ? 'admin' : 'buyer';
 
   async function handlePay() {
@@ -119,6 +121,15 @@ export function OrderDetailPage() {
       setConfirmOpen(false);
       setNote('Receipt confirmed. The transaction is now awaiting admin payout processing.');
       return next;
+    });
+  }
+
+  async function handleRemindPayout() {
+    if (!order) return;
+    await run('remind-payout', async () => {
+      await orderService.remindPayout(order.id);
+      setRemindOpen(false);
+      setNote('Reminder sent to admin. They will see it in their notifications.');
     });
   }
 
@@ -360,6 +371,33 @@ export function OrderDetailPage() {
             {canReport && !canConfirm ? (
               <div className="mt-5">
                 <a href="#report-problem"><Button variant="secondary" className="w-full">Report a Problem</Button></a>
+              </div>
+            ) : null}
+
+            {canRemindPayout ? (
+              <div className="mt-5 rounded-xl bg-amber-50 p-4 ring-1 ring-amber-200">
+                <p className="text-sm font-medium text-amber-900">Awaiting admin payout</p>
+                <p className="mt-1 text-xs text-amber-800">If payment is taking long, you can send a reminder to admin.</p>
+                {!remindOpen ? (
+                  <Button variant="secondary" className="mt-3 w-full" onClick={() => setRemindOpen(true)} disabled={busy !== null}>
+                    Remind admin to pay
+                  </Button>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    <div className="rounded-lg bg-white px-3 py-2 text-xs leading-relaxed text-ink-700 ring-1 ring-amber-100">
+                      <p className="font-semibold text-ink-900">Reminder message</p>
+                      <p className="mt-1">
+                        Payout pending for {order.orderCode}. Farmer: {order.farmer?.fullName || 'Farmer'}. Buyer: {order.buyer?.fullName || order.delivery?.contactName || 'Buyer'}. Livestock: {order.snapshot.title}. Buyer confirmed delivery; please review and pay farmer.
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button className="flex-1" onClick={() => void handleRemindPayout()} disabled={busy !== null}>
+                        {busy === 'remind-payout' ? 'Sending...' : 'Send reminder'}
+                      </Button>
+                      <Button variant="ghost" className="flex-1" onClick={() => setRemindOpen(false)} disabled={busy !== null}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : null}
 

@@ -65,6 +65,10 @@ export const orderService = {
     return data.order;
   },
 
+  async remindPayout(id: string): Promise<void> {
+    await request<{ success: boolean; message: string }>({ method: 'POST', url: `/orders/${id}/remind-payout` });
+  },
+
   /** The test provider only: it marks the in memory checkout as paid and funds the order. */
   async completeMockPayment(reference: string): Promise<{ id: string; orderCode: string; status: string }> {
     const data = await request<{ order: { id: string; orderCode: string; status: string } }>({
