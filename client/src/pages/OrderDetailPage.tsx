@@ -349,14 +349,14 @@ export function OrderDetailPage() {
 
 
 
-          {order.status === 'awaiting_payment' ? (
+          {isBuyer && order.status === 'awaiting_payment' ? (
             <div className="rounded-card bg-amber-50 p-5 ring-1 ring-amber-200">
               <p className="text-xs font-semibold text-amber-800">🔒 How your payment is protected</p>
               <p className="mt-1 text-xs leading-relaxed text-amber-700">Your money is held by HalalLivestock until you confirm the livestock arrived as agreed. Delivery fee is arranged directly with the farmer.</p>
             </div>
           ) : null}
 
-          {order.paymentState === 'held' ? (
+          {isBuyer && order.paymentState === 'held' ? (
             <div className="rounded-card bg-emerald-50 p-5 ring-1 ring-emerald-200">
               <p className="text-xs font-semibold text-emerald-800">🔒 Payment held safely</p>
               <p className="mt-1 text-xs leading-relaxed text-emerald-700">HalalLivestock holds this payment until delivery is confirmed and any dispute is resolved.</p>

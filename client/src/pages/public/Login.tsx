@@ -40,7 +40,7 @@ export function LoginPage() {
         {error ? (
           <Alert tone="error">
             {error.status === 401
-              ? 'That email or phone number and password do not match our records.'
+              ? 'The email or password is not correct.'
               : (error.fieldErrors[0]?.message ?? error.message)}
           </Alert>
         ) : null}
