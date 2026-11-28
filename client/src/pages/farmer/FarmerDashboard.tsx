@@ -5,7 +5,7 @@ import { Button, Spinner } from '../../components/common/Button';
 import { AccountPanel } from '../../components/dashboard/AccountPanel';
 import { DashboardHeader } from '../../components/dashboard/DashboardHeader';
 import { MyListings } from '../../components/dashboard/MyListings';
-import { RecentOrders } from '../../components/dashboard/RecentOrders';
+import { OrderList } from '../../components/order/OrderList';
 import { ReportsCard } from '../../components/dashboard/ReportsCard';
 import { VerificationCard } from '../../components/dashboard/VerificationCard';
 import { useAuth } from '../../hooks/useAuth';
@@ -141,12 +141,48 @@ export function FarmerDashboardPage() {
 
         <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr] lg:items-start">
           <div className="min-w-0 space-y-9">
-            <RecentOrders perspective="farmer" />
+            <section>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-display text-lg font-semibold text-ink-900">Orders to work on</h2>
+                <Link to="/orders"><Button size="sm" variant="secondary">All orders</Button></Link>
+              </div>
+              <div className="mt-4">
+                {!orders ? (
+                  <div className="grid place-items-center py-8 text-brand-600"><Spinner className="size-7" /></div>
+                ) : (
+                  <OrderList
+                    orders={orders.filter((o) => !['completed', 'cancelled', 'refunded'].includes(o.status))}
+                    perspective="farmer"
+                    emptyTitle="No orders to work on"
+                    emptyBody="When buyers pay for your livestock, orders that need your action will appear here."
+                  />
+                )}
+              </div>
+            </section>
+
+            <section>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="font-display text-lg font-semibold text-ink-900">Completed orders</h2>
+              </div>
+              <div className="mt-4">
+                {!orders ? (
+                  <div className="grid place-items-center py-8 text-brand-600"><Spinner className="size-7" /></div>
+                ) : (
+                  <OrderList
+                    orders={orders.filter((o) => ['completed', 'cancelled', 'refunded'].includes(o.status))}
+                    perspective="farmer"
+                    emptyTitle="No completed orders yet"
+                    emptyBody="Orders you finish will appear here."
+                  />
+                )}
+              </div>
+            </section>
+
             <MyListings />
 
             <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
               <h2 className="font-display text-lg font-semibold text-ink-900">Your money</h2>
-              <p className="mt-1 text-sm text-ink-500">This shows what you earned after the {commission} platform fee is removed.</p>
+              <p className="mt-1 text-sm text-ink-500">This shows what you earned after the {commission} platform fee is removed. The fee includes service fee, bank charges, and other processing costs.</p>
               <dl className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-200">
                   <dt className="text-xs text-ink-500">Waiting for admin payment</dt>
@@ -161,7 +197,7 @@ export function FarmerDashboardPage() {
                 <div className="rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-200">
                   <dt className="text-xs text-ink-500">Platform fee</dt>
                   <dd className="mt-1 text-lg font-semibold text-ink-900">{commission}</dd>
-                  <dd className="text-xs text-ink-500">Removed from each order</dd>
+                  <dd className="text-xs text-ink-500">Includes service & bank charges</dd>
                 </div>
               </dl>
               {summary.awaitingPayout.length > 0 ? (

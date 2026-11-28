@@ -26,11 +26,11 @@ export function DashboardHeader({ eyebrow, title, caption, image, alt, aside }: 
           <p className="mt-3 max-w-xl leading-relaxed text-brand-100">{caption}</p>
         </div>
 
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2 lg:justify-items-end">
+        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {aside.map((item) => (
-            <div key={item.label} className="rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
+            <div key={item.label} className="min-w-0 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm">
               <dt className="text-[11px] uppercase tracking-wide text-brand-200">{item.label}</dt>
-              <dd className="mt-1 truncate text-sm font-semibold text-white">{item.value}</dd>
+              <dd className="mt-1 text-sm font-semibold text-white sm:truncate">{item.value}</dd>
             </div>
           ))}
         </dl>
