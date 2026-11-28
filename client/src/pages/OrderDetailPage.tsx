@@ -203,10 +203,20 @@ export function OrderDetailPage() {
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200 sm:col-span-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Buyer contact</p>
-                <p className="mt-2 text-sm font-semibold text-ink-900">{order.delivery?.contactName || 'Not provided'}</p>
-                <p className="mt-1 text-sm text-ink-700">{order.delivery?.contactPhone || 'No phone number'}</p>
+              <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Buyer name</p>
+                <p className="mt-2 text-sm font-semibold text-ink-900">{order.delivery?.contactName || order.buyer?.fullName || 'Not provided'}</p>
+              </div>
+
+              <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Phone number</p>
+                {order.delivery?.contactPhone ? (
+                  <a href={`tel:${order.delivery.contactPhone.replace(/[^\d+]/g, '')}`} className="mt-2 inline-block text-sm font-semibold text-brand-700 hover:underline">
+                    {order.delivery.contactPhone}
+                  </a>
+                ) : (
+                  <p className="mt-2 text-sm font-medium text-ink-900">No phone number</p>
+                )}
               </div>
 
               <div className="rounded-xl bg-stone-50 p-4 ring-1 ring-stone-200 sm:col-span-2">
@@ -217,7 +227,11 @@ export function OrderDetailPage() {
               </div>
 
               <div className="rounded-xl bg-white p-4 ring-1 ring-stone-200">
-                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Wanted by</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Order placed</p>
+                <p className="mt-2 text-sm font-medium text-ink-900">{formatDateTime(order.createdAt)}</p>
+              </div>
+              <div className="rounded-xl bg-white p-4 ring-1 ring-stone-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Buyer wants delivery by</p>
                 <p className="mt-2 text-sm font-medium text-ink-900">{order.delivery?.wantedDate ? formatDateTime(order.delivery.wantedDate) : 'Not set'}</p>
               </div>
               <div className="rounded-xl bg-white p-4 ring-1 ring-stone-200">
@@ -228,7 +242,7 @@ export function OrderDetailPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Expected arrival</p>
                 <p className="mt-2 text-sm font-medium text-ink-900">{order.expectedDeliveryAt ? formatDateTime(order.expectedDeliveryAt) : (order.deliveryEtaValue ? `${order.deliveryEtaValue} ${order.deliveryEtaUnit}` : 'Not provided')}</p>
               </div>
-              <div className="rounded-xl bg-white p-4 ring-1 ring-stone-200">
+              <div className="rounded-xl bg-white p-4 ring-1 ring-stone-200 sm:col-span-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Delivery note</p>
                 <p className="mt-2 text-sm leading-relaxed text-ink-900">{order.deliveryNote || '—'}</p>
               </div>
