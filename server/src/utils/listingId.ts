@@ -24,12 +24,12 @@ export function listingSlugPath(listing: {
   state: string;
 }): string {
   const id = String(listing._id);
-  const slug = [listing.title, listing.species, listing.breed, listing.town, listing.state]
+  const slug = [listing.title, listing.breed]
     .map(slugPart)
     .filter(Boolean)
     .join('-')
     .replace(/-+/g, '-')
-    .slice(0, 80)
+    .slice(0, 45)
     .replace(/-+$/g, '');
   return `/marketplace/${slug ? `${slug}-${id}` : id}`;
 }

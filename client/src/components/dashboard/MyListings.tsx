@@ -14,7 +14,7 @@ import {
 } from '../../services/listingService';
 import type { Listing, ListingStatus } from '../../types';
 import { formatNaira } from '../../utils/format';
-import { listingPath } from '../../utils/listingUrl';
+import { listingPath, listingShareUrl } from '../../utils/listingUrl';
 import { SPECIES_LABELS, STATUS_LABELS, STATUS_STYLES, UNIT_LABELS } from '../../utils/listingMeta';
 import { EditListingModal } from './EditListingModal';
 
@@ -28,7 +28,7 @@ export function MyListings() {
   const [sharedId, setSharedId] = useState<string | null>(null);
 
   async function handleShare(listing: Listing) {
-    const shareUrl = `${window.location.origin}${listingPath(listing)}`;
+    const shareUrl = listingShareUrl(listing);
     const shareData = {
       title: `${listing.title} — Halal Livestocks`,
       text: `Check out ${listing.title} on Halal Livestocks: ${formatNaira(listing.priceKobo)} per ${UNIT_LABELS[listing.unit]}`,

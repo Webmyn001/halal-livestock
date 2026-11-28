@@ -135,7 +135,7 @@ export function EditListingModal({ listing, isOpen, onClose, onSaved }: EditList
         {listing.status === 'sold' ? (
           <div className="mt-4">
             <Alert tone="info" title="Reactivating sold stock">
-              This lot was previously sold. Entering your new stock quantity and saving will put it right back on sale in the marketplace.
+              This livestock was previously sold. Entering your new stock quantity and saving will put it right back on sale in the marketplace.
             </Alert>
           </div>
         ) : null}

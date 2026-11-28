@@ -72,7 +72,7 @@ export function OrderPanel({ listing }: OrderPanelProps) {
           </p>
           <p className="text-xs text-ink-600 leading-relaxed">
             {isSold
-              ? 'Another buyer has already purchased this lot. It is no longer available for new orders.'
+              ? 'Another buyer has already purchased this livestock. It is no longer available for new orders.'
               : isUnderProcess
                 ? 'This livestock is currently being processed with another buyer. Other buyers cannot purchase it.'
                 : 'This item is not accepting new orders.'}

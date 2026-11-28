@@ -18,13 +18,20 @@ type ListingPathInput = {
   state: string;
 };
 
-/** Readable, unique marketplace URL: meaningful words + listing id for stable lookup. */
+/** Readable, unique marketplace URL: title + breed + listing id for stable lookup. */
 export function listingPath(listing: ListingPathInput): string {
-  const parts = [listing.title, listing.species, listing.breed, listing.town, listing.state]
-    .map(slugPart)
-    .filter(Boolean);
-  const slug = parts.join('-').replace(/-+/g, '-').slice(0, 80).replace(/-+$/g, '');
+  const parts = [listing.title, listing.breed].map(slugPart).filter(Boolean);
+  const slug = parts.join('-').replace(/-+/g, '-').slice(0, 45).replace(/-+$/g, '');
   return `/marketplace/${slug ? `${slug}-${listing.id}` : listing.id}`;
+}
+
+export function listingShareUrl(listing: ListingPathInput): string {
+  const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '');
+  const apiOrigin = apiBase.replace(/\/api\/v1$/i, '');
+  const path = listingPath(listing);
+  const id = listingIdFromParam(listing.id) || listing.id;
+  const sharePath = `/share/listings/${path.split('/').pop() || id}`;
+  return apiOrigin ? `${apiOrigin}${sharePath}` : `${window.location.origin}${path}`;
 }
 
 /** Accepts a plain id or a slug ending in a 24-char Mongo ObjectId. */

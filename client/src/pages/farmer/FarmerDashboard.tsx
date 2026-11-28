@@ -13,7 +13,7 @@ import { orderService } from '../../services/orderService';
 import { platformService } from '../../services/platformService';
 import type { Order, PlatformInfo } from '../../types';
 import { formatNaira } from '../../utils/format';
-import { KYC_STATUS_LABELS, ORDER_STATUS_LABELS, orderStatusStyle } from '../../utils/orderMeta';
+import { KYC_STATUS_LABELS, orderStatusStyle } from '../../utils/orderMeta';
 
 function StatCard({ label, value, hint, to }: { label: string; value: string; hint: string; to: string }) {
   return (
@@ -46,6 +46,7 @@ export function FarmerDashboardPage() {
     return () => { cancelled = true; };
   }, []);
 
+  const bps = platform?.commissionBps ?? 500;
   const summary = useMemo(() => {
     const all = orders ?? [];
     const needsPrep = all.filter((o) => o.status === 'funded');
@@ -54,8 +55,10 @@ export function FarmerDashboardPage() {
     const awaitingPayout = all.filter((o) => ['confirmed', 'awaiting_farmer_payout'].includes(o.status) || o.payoutStatus === 'awaiting_payout');
     const paidOut = all.filter((o) => o.status === 'completed' || o.payoutStatus === 'paid');
     const grossPaid = paidOut.reduce((s, o) => s + o.totalKobo, 0);
-    return { needsPrep, preparing, inTransit, awaitingPayout, paidOut, grossPaid, all };
-  }, [orders]);
+    const netEarned = paidOut.reduce((s, o) => s + (o.totalKobo - Math.floor((o.totalKobo * bps) / 10_000)), 0);
+    const awaitingPayoutNet = awaitingPayout.reduce((s, o) => s + (o.totalKobo - Math.floor((o.totalKobo * bps) / 10_000)), 0);
+    return { needsPrep, preparing, inTransit, awaitingPayout, paidOut, grossPaid, netEarned, awaitingPayoutNet, all };
+  }, [orders, bps]);
 
   if (!user) return null;
 
@@ -114,10 +117,10 @@ export function FarmerDashboardPage() {
             <div className="mt-4 grid place-items-center py-8 text-brand-600"><Spinner className="size-7" /></div>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <StatCard label="Needs delivery time" value={String(summary.needsPrep.length)} hint="Paid orders waiting for your delivery time." to="/orders" />
+              <StatCard label="Set delivery time" value={String(summary.needsPrep.length)} hint="Paid orders waiting for your delivery time." to="/orders" />
               <StatCard label="On the way" value={String(summary.preparing.length + summary.inTransit.length)} hint="Orders being delivered to buyers." to="/orders" />
-              <StatCard label="Awaiting payout" value={String(summary.awaitingPayout.length)} hint="Confirmed deliveries awaiting admin payout." to="/orders" />
-              <StatCard label="Paid out" value={formatNaira(summary.grossPaid)} hint={`${summary.paidOut.length} completed order${summary.paidOut.length === 1 ? '' : 's'} (gross).`} to="/orders" />
+              <StatCard label="Waiting for payment" value={formatNaira(summary.awaitingPayoutNet)} hint={`${summary.awaitingPayout.length} order${summary.awaitingPayout.length === 1 ? '' : 's'} confirmed, waiting for admin payment.`} to="/orders" />
+              <StatCard label="Money earned" value={formatNaira(summary.netEarned)} hint={`After ${commission} fee removed · ${summary.paidOut.length} completed order${summary.paidOut.length === 1 ? '' : 's'}.`} to="/orders" />
             </div>
           )}
         </section>
@@ -142,36 +145,42 @@ export function FarmerDashboardPage() {
             <MyListings />
 
             <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
-              <h2 className="font-display text-lg font-semibold text-ink-900">Earnings & payouts</h2>
-              <p className="mt-1 text-sm text-ink-500">Payouts are processed by admin after buyer confirmation. Commission is deducted per completed order.</p>
+              <h2 className="font-display text-lg font-semibold text-ink-900">Your money</h2>
+              <p className="mt-1 text-sm text-ink-500">This shows what you earned after the {commission} platform fee is removed.</p>
               <dl className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-200">
-                  <dt className="text-xs text-ink-500">Awaiting payout</dt>
-                  <dd className="mt-1 text-lg font-semibold text-ink-900">{summary.awaitingPayout.length}</dd>
+                  <dt className="text-xs text-ink-500">Waiting for admin payment</dt>
+                  <dd className="mt-1 text-lg font-semibold text-ink-900">{formatNaira(summary.awaitingPayoutNet)}</dd>
+                  <dd className="text-xs text-ink-500">{summary.awaitingPayout.length} order{summary.awaitingPayout.length === 1 ? '' : 's'}</dd>
                 </div>
                 <div className="rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-200">
-                  <dt className="text-xs text-ink-500">Completed payouts</dt>
-                  <dd className="mt-1 text-lg font-semibold text-ink-900">{summary.paidOut.length}</dd>
+                  <dt className="text-xs text-ink-500">Money earned</dt>
+                  <dd className="mt-1 text-lg font-semibold text-ink-900">{formatNaira(summary.netEarned)}</dd>
+                  <dd className="text-xs text-ink-500">{summary.paidOut.length} completed order{summary.paidOut.length === 1 ? '' : 's'}</dd>
                 </div>
                 <div className="rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-200">
-                  <dt className="text-xs text-ink-500">Platform commission</dt>
+                  <dt className="text-xs text-ink-500">Platform fee</dt>
                   <dd className="mt-1 text-lg font-semibold text-ink-900">{commission}</dd>
+                  <dd className="text-xs text-ink-500">Removed from each order</dd>
                 </div>
               </dl>
               {summary.awaitingPayout.length > 0 ? (
                 <ul className="mt-4 divide-y divide-stone-100">
-                  {summary.awaitingPayout.slice(0, 5).map((o) => (
-                    <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-ink-900">{o.orderCode} · {o.snapshot.title}</p>
-                        <p className="text-xs text-ink-500">{ORDER_STATUS_LABELS[o.status]}</p>
-                      </div>
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${orderStatusStyle(o.status)}`}>{o.payoutStatus === 'paid' ? 'Paid' : 'Awaiting payout'}</span>
-                    </li>
-                  ))}
+                  {summary.awaitingPayout.slice(0, 5).map((o) => {
+                    const net = o.totalKobo - Math.floor((o.totalKobo * bps) / 10_000);
+                    return (
+                      <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-ink-900">{o.orderCode} · {o.snapshot.title}</p>
+                          <p className="text-xs text-ink-500">You will receive {formatNaira(net)} after {commission} fee</p>
+                        </div>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${orderStatusStyle(o.status)}`}>{o.payoutStatus === 'paid' ? 'Paid' : 'Waiting for admin'}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               ) : (
-                <p className="mt-4 text-sm text-ink-500">No payouts waiting right now. Confirmed deliveries will appear here until admin releases payment.</p>
+                <p className="mt-4 text-sm text-ink-500">No money waiting right now. After a buyer confirms delivery, admin will pay you here.</p>
               )}
             </section>
 

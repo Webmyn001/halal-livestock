@@ -19,7 +19,7 @@ import { ApiRequestError } from '../../services/apiClient';
 import { listingService } from '../../services/listingService';
 import type { Listing } from '../../types';
 import { formatDate, formatNaira } from '../../utils/format';
-import { listingIdFromParam, listingPath } from '../../utils/listingUrl';
+import { listingIdFromParam, listingPath, listingShareUrl } from '../../utils/listingUrl';
 import { LISTING_TYPE_LABELS, SPECIES_LABELS, UNIT_LABELS } from '../../utils/listingMeta';
 
 const PROTECTION = [
@@ -102,7 +102,7 @@ export function ListingDetailPage() {
 
   async function handleShare() {
     if (!listing) return;
-    const shareUrl = window.location.href;
+    const shareUrl = listingShareUrl(listing);
     const shareData = {
       title: `${listing.title} — Halal Livestocks`,
       text: `Check out ${listing.title} on Halal Livestocks Marketplace: ${formatNaira(listing.priceKobo)} per ${UNIT_LABELS[listing.unit]}`,
@@ -250,7 +250,7 @@ export function ListingDetailPage() {
               }`}
             >
               {listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0)
-                ? '🔴 THIS LOT IS SOLD'
+                ? '🔴 THIS LIVESTOCK IS SOLD'
                 : listing.status === 'under_process'
                   ? '⏳ ORDER UNDER PROCESS'
                   : '🚫 THIS LISTING IS UNAVAILABLE'}
@@ -266,7 +266,7 @@ export function ListingDetailPage() {
             }`}
           >
             {listing.status === 'sold' || (listing.status === 'active' && listing.quantity === 0)
-              ? 'Another buyer has already purchased this lot. It is no longer available for order.'
+              ? 'Another buyer has already purchased this livestock. It is no longer available for order.'
               : listing.status === 'under_process'
                 ? 'An order is currently in progress for this livestock item. It cannot be purchased by another buyer.'
                 : 'This listing has been removed. The farmer keeps it here for their records.'}

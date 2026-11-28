@@ -301,7 +301,7 @@ export function PostLivestockPage() {
               collection or delivery time, and the payment stays with the platform until the buyer confirms receipt.
             </p>
             <p className="mt-4 text-xs leading-relaxed text-ink-500">
-              You can mark a lot sold or take a listing down from your dashboard at any time. A listing always keeps at
+              You can mark livestock sold or take a listing down from your dashboard at any time. A listing always keeps at
               least one photo, so add a replacement before removing the last one.
             </p>
             <Link to="/how-it-works" className="mt-5 inline-block">

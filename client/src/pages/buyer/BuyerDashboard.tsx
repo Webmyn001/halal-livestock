@@ -75,8 +75,8 @@ export function BuyerDashboardPage() {
             <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard label="Browse livestock" value="Marketplace" hint="Find verified halal livestock near you." to="/marketplace" />
               <StatCard label="Active orders" value={String(summary.active.length)} hint="Orders currently in progress." to="/orders" />
-              <StatCard label="Awaiting confirmation" value={String(summary.awaitingConfirmation.length)} hint="Delivered orders waiting for your confirmation." to="/orders" />
-              <StatCard label="Total paid" value={formatNaira(summary.spent)} hint={`${summary.paid.length} paid order${summary.paid.length === 1 ? '' : 's'}.`} to="/orders" />
+              <StatCard label="Confirm delivery" value={String(summary.awaitingConfirmation.length)} hint="Delivered orders waiting for your confirmation." to="/orders" />
+              <StatCard label="Total spent" value={formatNaira(summary.spent)} hint={`You paid for ${summary.paid.length} order${summary.paid.length === 1 ? '' : 's'}.`} to="/orders" />
             </div>
           )}
         </section>
@@ -121,8 +121,8 @@ export function BuyerDashboardPage() {
             ) : null}
 
             <section className="rounded-card bg-white p-6 ring-1 ring-stone-200 shadow-card sm:p-7">
-              <h2 className="font-display text-lg font-semibold text-ink-900">Payment history</h2>
-              <p className="mt-1 text-sm text-ink-500">Payments you have made through HalalLivestock. Delivery fees agreed outside the platform are not included.</p>
+              <h2 className="font-display text-lg font-semibold text-ink-900">What you spent</h2>
+              <p className="mt-1 text-sm text-ink-500">See how much you paid for each livestock order. Delivery fees agreed outside the platform are not included.</p>
               {!orders ? (
                 <div className="mt-4 grid place-items-center py-6 text-brand-600"><Spinner className="size-6" /></div>
               ) : summary.paid.length === 0 ? (
@@ -131,13 +131,14 @@ export function BuyerDashboardPage() {
                 <ul className="mt-4 divide-y divide-stone-100">
                   {summary.paid.slice(0, 8).map((o) => (
                     <li key={o.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-ink-900">{o.orderCode} · {o.snapshot.title}</p>
-                        <p className="text-xs text-ink-500">{o.paidAt ? new Date(o.paidAt).toLocaleDateString() : ''} · {ORDER_STATUS_LABELS[o.status]}</p>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-ink-900">{o.snapshot.title}</p>
+                        <p className="text-xs text-ink-500">{o.orderCode} · {o.paidAt ? new Date(o.paidAt).toLocaleDateString() : ''}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-ink-900">{formatNaira(o.totalKobo)}</p>
-                        <Link to={`/orders/${o.id}`} className="text-xs font-medium text-brand-700 hover:underline">Details</Link>
+                        <p className="text-xs text-ink-500">Amount spent</p>
+                        <Link to={`/orders/${o.id}`} className="text-xs font-medium text-brand-700 hover:underline">View order</Link>
                       </div>
                     </li>
                   ))}
